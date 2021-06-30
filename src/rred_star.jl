@@ -1,7 +1,3 @@
-using LinearAlgebra
-
-using BlockArrays
-
 """
 Return the star product as defined by Redheffer of two 2x2 BlockMatrices
 
