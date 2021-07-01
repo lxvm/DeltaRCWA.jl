@@ -1,9 +1,12 @@
-"compute transmission for kx = 0 (normal incident transitivity)"
+"""
+compute transmission for kx = 0 (normal incident transitivity)
+
+assumes epsilon and mu are 1 
+L is the width of the cell
+λ is in units of L
+M, N are surface permitvities, expressed as a diagonal matrix
+"""
 function get_transmissivity_normalincident(M, N, L, λ, u_in₁, u_in₂)
-    """ assumes epsilon and mu are 1 
-    L is the width of the cell
-    λ is in units of L
-    M, N are surface permitvities, expressed as a diagonal matrix"""
     
     S, β = get_all_modes(M, N, L, λ)
     u_in = [u_in₁; u_in₂]
