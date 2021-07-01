@@ -1,4 +1,4 @@
-module deltaRCWA
+module DeltaRCWA
 
 using Reexport
 

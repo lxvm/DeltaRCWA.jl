@@ -1,4 +1,4 @@
-name = "deltaRCWA"
+name = "DeltaRCWA"
 uuid = "64a8dc3d-f8fa-4cac-a309-acce05caa2e9"
 authors = ["Lorenzo X. Van Muñoz <lorenzo@vanmunoz.com> and contributors"]
 version = "0.1.0"
@@ -7,6 +7,7 @@ version = "0.1.0"
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
