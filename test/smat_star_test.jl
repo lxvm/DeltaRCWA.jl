@@ -1,5 +1,5 @@
-"Calculate the right inverse of the S-matrix star"
-function Rinv_smat_star(S)
+"Calculate the inverse of the S-matrix star"
+function inv_smat_star(S)
     M = inv(S)
     return mortar(reshape([
         M[Block(2, 2)], M[Block(1, 2)], M[Block(2, 1)], M[Block(1, 1)]
@@ -28,7 +28,7 @@ for n in 2:5, m in 2:5
     end
     if n == m
         @testset "verify inverse" for M in S
-            M⁻¹ = Rinv_smat_star(M)
+            M⁻¹ = inv_smat_star(M)
             @test smat_star(M, M⁻¹) ≈ smat_star(M⁻¹, M) ≈ Lid ≈ Rid
         end
     end
