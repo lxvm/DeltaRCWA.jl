@@ -6,7 +6,11 @@ using Reexport
 
 @reexport using BlockArrays
 
-export smat_star, rred_star, get_all_modes, get_prop_modes, get_transmissivity_normalincident
+include("ScatteringTypes/ScatteringTypes.jl")
+@reexport using .ScatteringTypes
+
+export smat_star, rred_star, get_all_modes, get_prop_modes,
+    get_transmissivity_normalincident
 
 include("smat_star.jl")
 include("rred_star.jl")
