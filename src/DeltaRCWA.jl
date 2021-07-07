@@ -10,12 +10,13 @@ include("ScatteringTypes/ScatteringTypes.jl")
 @reexport using .ScatteringTypes
 
 export smat_star, rred_star, get_all_modes, get_prop_modes,
-    get_transmissivity_normalincident
+    get_transmissivity_normalincident, smatrix
 
 include("smat_star.jl")
 include("rred_star.jl")
 include("get_all_modes.jl")
 include("get_prop_modes.jl")
 include("get_transmissivity_normalincident.jl")
+include("smatrix.jl")
 
 end

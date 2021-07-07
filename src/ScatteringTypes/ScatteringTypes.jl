@@ -1,7 +1,6 @@
 module ScatteringTypes
 
-export AbstractScatteringLayer, PeriodicScatteringLayer, UniformLayer,
-    XYPeriodicDeltaLayer
+export AbstractScatteringLayer, PeriodicScatteringLayer, UniformLayer
 
 include("layers.jl")
 

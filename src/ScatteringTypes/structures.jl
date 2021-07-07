@@ -4,5 +4,4 @@ abstract type PeriodicScatteringStructure{T <: PeriodicScatteringLayer} <: Abstr
 mutable struct XYPeriodicScatteringStructure{T} <: PeriodicScatteringStructure{T}
     lx::Real
     ly::Real
-
 end
