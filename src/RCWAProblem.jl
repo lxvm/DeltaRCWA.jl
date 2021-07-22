@@ -1,10 +1,9 @@
-using Base: Real
 """
     RCWAProblem(
         structure::AbstractScatterer,
         a::NTuple{N, Float64} where N,
         ω::Float64,
-        incidentmodes::NTuple{N, NTuple{2, NTuple{M, ComplexF64} where M}},
+        incidentmodes::NTuple{2, NTuple{M, ComplexF64} where M}
     )
 
 Stores information needed to solve a scattering problem: the structure to
@@ -25,21 +24,28 @@ struct RCWAProblem{N} <: PeriodicScatteringProblem where N
     structure::AbstractScatterer
     a::NTuple{N, Float64}
     ω::Float64
-    incidentmodes::NTuple{N, NTuple{2, NTuple{M, ComplexF64} where M}}
+    incidentmodes::NTuple{2, NTuple{M, ComplexF64} where M}
+    ### TODO: Design problem
+    # how do you specify the incident modes effectively?
+    # how do you unambiguously iterate over the product space of modes?
+    # just do it consistently with the users order, or use named tuples
 end
 
 function solve(problem::RCWAProblem{N}) where N
-    error("Not implemented")
     return smatrix(
         problem.structure,
-        (),
-        problem.ω) * blockvector_product(problem.incidentmodes)
-    # TODO
+        Tuple(fftfreq(length(problem.incidentmodes[i][1]), 1/a[i]) for i in eachindex(a)),
+        problem.ω
+    ) * to_blockvector(problem.incidentmodes)
+    # TODO: test these properties of the solution:
     # Nondimensionalize the problem in terms of the lattice vectors
     # fftfreq for each spatial grid
     # construct the inital mode as a blockvector
 end
 
-function blockvector_product(in::NTuple{N, NTuple{M, ComplexF64} where M} where N)
-    #TODO
+function to_blockvector(input::NTuple{2, NTuple{M, ComplexF64}}) where M
+    return BlockVector(
+        collect([e for block in input for e in block]),
+        [M, M]
+    )
 end
