@@ -1,5 +1,8 @@
 # Prototype Specification for scattering problems
 
+(Drafted July 4, 2021)
+(Comment July 22, 2021: interfaces still need to be defined and documented)
+
 A scattering problem describes the effect of a process on a travelling medium,
 such as when billiard balls collide or light waves pass through a lens.
 Therefore the scattering process accepts inputs and returns outputs, usually
