@@ -1,5 +1,6 @@
 module DeltaRCWA
 
+using Base: modules_warned_for, valid_import_path
 using Reexport
 
 @reexport using LinearAlgebra
@@ -21,6 +22,14 @@ abstract type PeriodicScatteringProblem <: AbstractScatteringProblem end
 
 # include code
 
+include("scatterers/scatterers.jl")
+
+export TE, TM, Coupled
+include("polarizations.jl")
+
+export Modes, get_kz
+include("modes.jl")
+
 export RCWAProblem, solve
 include("RCWAProblem.jl")
 
@@ -32,7 +41,5 @@ include("star_products.jl")
 
 export get_all_modes, get_prop_modes, get_transmissivity_normalincident
 include("Luke_functions.jl")
-
-include("scatterers/scatterers.jl")
 
 end

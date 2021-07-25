@@ -2,8 +2,11 @@
 # Each scatterer defines its own parametrization and functions to obtain
 # scattering matrices, or generically conductivity matrices
 
-export ScatteringStack
-include("ScatteringStack.jl")
+export TrivialSheet
+include("TrivialSheet.jl")
+
+export Vacuum, UniformMedium
+include("UniformMedia.jl")
 
 export UniformLayer
 include("UniformLayer.jl")
@@ -19,3 +22,6 @@ include("HCellDeltaLayer.jl")
 
 export HoleDeltaLayer
 include("HoleDeltaLayer.jl")
+
+export ScatteringStack
+include("ScatteringStack.jl")

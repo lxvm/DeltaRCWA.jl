@@ -20,23 +20,17 @@ Any remaining dimensions are assumed to be invariant
 `ω` is the frequency of the incident wave
 `incidentmodes` is a Tuple containing the incident mode coefficients
 """
-struct RCWAProblem{N} <: PeriodicScatteringProblem where N
-    structure::AbstractScatterer
-    a::NTuple{N, Float64}
-    ω::Float64
-    incidentmodes::NTuple{2, NTuple{M, ComplexF64} where M}
-    ### TODO: Design problem
-    # how do you specify the incident modes effectively?
-    # how do you unambiguously iterate over the product space of modes?
-    # just do it consistently with the users order, or use named tuples
+struct RCWAProblem{N, P} <: PeriodicScatteringProblem
+    structure::DeltaScatterer
+    modes::PlanewaveModes{N, P, T} where T <: AbstractUniformMedium
 end
 
-function solve(problem::RCWAProblem{N}) where N
+function solve(problem::RCWAProblem{N, P}) where {N, P}
     return smatrix(
         problem.structure,
-        Tuple(fftfreq(length(problem.incidentmodes[i][1]), 1/a[i]) for i in eachindex(a)),
+        Tuple(fftfreq(length(problem.modes[i][1]), 1/a[i]) for i in eachindex(a)),
         problem.ω
-    ) * to_blockvector(problem.incidentmodes)
+    ) * to_blockvector(problem.modes)
     # TODO: test these properties of the solution:
     # Nondimensionalize the problem in terms of the lattice vectors
     # fftfreq for each spatial grid

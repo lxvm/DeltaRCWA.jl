@@ -180,15 +180,18 @@ and double braces give the sum of fields on each side of the sheet
 @variables Hʸ₁ Eʸ₁ Hʸ₂ Eʸ₂
 
 # ╔═╡ 585ecd23-4359-44a9-9e38-9a51fd856707
-@variables σₑˣ σₑʸ σₘˣ σₘʸ
+@variables σₑˣˣ σₑˣʸ σₑʸˣ σₑʸʸ
+
+# ╔═╡ c0cecaa6-d832-430f-8b7e-2c28b6a67870
+@variables σₘˣˣ σₘˣʸ σₘʸˣ σₘʸʸ
 
 # ╔═╡ 9ebcd410-30d0-4b28-b505-fb1593a4e2d5
 begin
 	GSTCs = [
-		Equation(-(Hʸ₁ - Hʸ₂), (σₑˣ/2) * (Eˣ₁ + Eˣ₂)),
-		Equation((Hˣ₁ - Hˣ₂), (σₑʸ/2) * (Eʸ₁ + Eʸ₂)),
-		Equation(-(Eʸ₁ - Eʸ₂), -(σₘˣ/2) * (Hˣ₁ + Hˣ₂)),
-		Equation((Eˣ₁ - Eˣ₂), -(σₘʸ/2) * (Hʸ₁ + Hʸ₂)),
+		Equation(-(Hʸ₁ - Hʸ₂), (σₑˣˣ/2) * (Eˣ₁ + Eˣ₂) + (σₑˣʸ/2) * (Eʸ₁ + Eʸ₂)),
+		Equation((Hˣ₁ - Hˣ₂), (σₑʸʸ/2) * (Eʸ₁ + Eʸ₂) + (σₑʸˣ/2) * (Eˣ₁ + Eˣ₂)),
+		Equation(-(Eʸ₁ - Eʸ₂), -(σₘˣˣ/2) * (Hˣ₁ + Hˣ₂) - (σₘˣʸ/2) * (Hʸ₁ + Hʸ₂)),
+		Equation((Eˣ₁ - Eˣ₂), -(σₘʸʸ/2) * (Hʸ₁ + Hʸ₂) - (σₘʸˣ/2) * (Hˣ₁ + Hˣ₂)),
 	]
 end
 
@@ -204,6 +207,8 @@ Taking our previous solutions for the $x$ components, we can express it all with
 GSTCs_in_y = @. substitute(GSTCs, Dict(
 	Hʸ₁ => hʸ₁,
 	Hʸ₂ => hʸ₂,
+	Eʸ₁ => eʸ₁,
+	Eʸ₂ => eʸ₂,
 	Eˣ₁ => substitute(x_coefs_sol[eˣ], Dict(eʸ => eʸ₁, hʸ => hʸ₁)),
 	Hˣ₁ => substitute(x_coefs_sol[hˣ], Dict(eʸ => eʸ₁, hʸ => hʸ₁)),
 	Eˣ₂ => substitute(x_coefs_sol[eˣ], Dict(eʸ => eʸ₂, hʸ => hʸ₂)),
@@ -776,6 +781,7 @@ version = "0.2.1"
 # ╠═6bc79da4-f7b3-4f3c-ae3d-017ddc05d60c
 # ╠═5773d655-d338-4549-a065-037b8d408a45
 # ╠═585ecd23-4359-44a9-9e38-9a51fd856707
+# ╠═c0cecaa6-d832-430f-8b7e-2c28b6a67870
 # ╠═9ebcd410-30d0-4b28-b505-fb1593a4e2d5
 # ╟─388cfd86-8b2e-41bc-b218-bd34d672beee
 # ╠═04ad757e-5230-4015-876a-c1e373b5cd8f

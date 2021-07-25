@@ -184,11 +184,11 @@ cyin₁ = [1 for n in ymodenumbers]
 cyin₂ = [1 for n in ymodenumbers]
 
 # ╔═╡ 65ffffaa-6511-49df-b0ed-0353c52113d6
-# get total indicident mode matrix on region 1
+# get total incident mode matrix on region 1
 cxyin₁ = kron(cyin₁, cxin₁)
 
 # ╔═╡ 3108c320-3f17-4e0b-858b-b9e25c11f02e
-# get total indicident mode matrix on region 2
+# get total incident mode matrix on region 2
 cxyin₂ = kron(cyin₂, cxin₂)
 
 # ╔═╡ 484f4b6a-8ccb-4519-9d04-fb0b505fc13a
@@ -200,17 +200,20 @@ md"
 "
 
 # ╔═╡ 6d4dd4c0-8e0c-4825-aa64-3a82ced17cd3
-sair₁ = smatrix(air₁, kxy, ω₀) 
+sair₁ = smatrix(air₁, (kx, ky), ω₀) 
 # == smatrix(air₁, reshape([i for i in kx], 1, size(kx, 1)), ω₀)
 
+# ╔═╡ 90d06519-9526-48c0-8560-116b7c112997
+reshape(([e[1] + e[2] for e in Iterators.product((kx, ky)...)]), prod(length, (kx, ky)))
+
+# ╔═╡ 9ba33324-8561-4413-8343-f9b52601d788
+size(kx)
+
 # ╔═╡ 0342e0f7-e654-41c2-9a56-b5e99d59ca27
-sair₂ = smatrix(air₂, kxy, ω₀) 
+sair₂ = smatrix(air₂, (kx, ky), ω₀) 
 
 # ╔═╡ 36a24a19-bbdc-466e-8905-da41493c5f8d
 sair₁₂ = smat_star(sair₁, sair₂)
-
-# ╔═╡ 7a11a4cb-930c-43b3-acfb-77737462c0f7
-typeof(kx)
 
 # ╔═╡ 7fdb6893-010e-4a6a-9636-d59e966e2fac
 sair₁₂[Block(1, 2)]
@@ -220,7 +223,7 @@ sair₁₂[Block(1, 2)]
 airstack = ScatteringStack([air₁, air₂])
 
 # ╔═╡ 06a9e35c-0400-4875-9ea7-86927ff288fa
-smatrix(airstack, kxy, ω₀) == sair₁₂ 
+smatrix(airstack, (kx, ky), ω₀) == sair₁₂ 
 
 # ╔═╡ 315bffb4-ef0f-4dcf-8b0c-31fbd2f0a795
 (sair₁₂ * cxyin)[Block(1)]
@@ -402,9 +405,11 @@ begin
 
 d  = cos(θᵗ)-cos(θ); 
 
-η(x) = -sin(θ).*(1+exp.(im*k*d*x));
+# η(x) = -sin(θ).*(1+exp.(im*k*d*x));
+η(x) = 0#-sin(θ).*(1+exp.(im*k*d*x));
 
-μ(x) = -sin(θ).*(1-exp.(im*k*d*x));
+# μ(x) = -sin(θ).*(1-exp.(im*k*d*x));
+μ(x) = 1000000000 #-sin(θ).*(1-exp.(im*k*d*x));
 
 L = 2*(2*π)/(k*abs(d));  # Unit cell width
 end
@@ -545,8 +550,10 @@ uinc(x,y)= @. exp(1im*α*x+1im*β*y);  # incident planewave
 # θᵗ = -π/8;    # transmitted field angle
 # d  = cos(θᵗ)-cos(θ); 
 # L = 2*(2*π)/(k*abs(d));  # Unit cell width
-M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x));
-N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x));
+M₀(x) =  [1e-8 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
+# M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x));
+# N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x));
+N₀(x) =  [-10000000 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
 
 nvec = 0:99;
 dx = L/length(nvec)
@@ -716,9 +723,6 @@ function thickness merely returns the identity.
 # ╔═╡ 543c8328-ab82-435a-aca7-1f0ab573294d
 struct TrivialDeltaLayer <: DeltaScatterer end
 
-# ╔═╡ 2e9cfa71-a698-4cd3-9785-0d5056b575b2
-smatrix(Air(0), kxy, 1)[Block(2,1)]
-
 # ╔═╡ 8da39a74-6081-4bb1-8d6a-1a0d9385e189
 function mysmatrix(layer::TrivialDeltaLayer, kxy::AbstractMatrix, ω₀::Real)
 	Nk = size(kxy, 2)
@@ -730,42 +734,51 @@ function mysmatrix(layer::TrivialDeltaLayer, kxy::AbstractMatrix, ω₀::Real)
 	], 2, 2))		
 end
 
+# ╔═╡ 521f8552-1ba7-49a2-be1b-5e4815ccb8f8
+mysmatrix(TrivialDeltaLayer(), Diagonal([1, 1,1,1]), 1.0)
+
 # ╔═╡ 09179a65-c8ed-448f-89fc-1aac43191bd0
 struct TriviallyNonTrivialDeltaLayer <: DeltaScatterer end
 
 # ╔═╡ 436afe39-699e-42b9-928f-868db66c2222
 fft(Matrix(Diagonal([1, 1, 1])), 2)
 
+# ╔═╡ ad8538e9-b49d-4390-9c4d-6fc4fe236fe1
+Air(depth) = UniformLayer(depth, 1, 1)
+
+# ╔═╡ 2e9cfa71-a698-4cd3-9785-0d5056b575b2
+smatrix(Air(0), kxy, 1)[Block(2,1)]
+
+# ╔═╡ 9efd0b2b-07d0-4949-b96f-88b01f78fa74
+Matrix(I, 2,2 )
+
 # ╔═╡ 1a7442fc-0944-4ea2-baf6-26a70dd9526b
-function mysmatrix(layer::TriviallyNonTrivialDeltaLayer, kxy::AbstractMatrix, ω₀::Real)
-	kz = DeltaRCWA.get_kz(Air(1), kxy, ω₀)
+function myTMsmatrix(layer::TriviallyNonTrivialDeltaLayer, kxy::NTuple{2, Frequencies}, ω::Real)
+	kz = DeltaRCWA.get_kz(Air(1), kxy, ω)
 	Nk = size(kz, 1)
-	M = Matrix(I, Nk, Nk)
-	N = Matrix(I, Nk, Nk)
-	# Note that M' ≈ M because the Fourier operator and it's inverse cancel
+	σₑ = zeros(Nk, Nk)
+	σₘ = zeros(Nk, Nk)
 	A = mortar(reshape([
-		-Diagonal(kz) + ω₀ * M,
-		-Diagonal(kz) + ω₀ * N,
-		-Diagonal(kz) + ω₀ * M,
-		Diagonal(kz) - ω₀ * N,
+		-I + σₑ * Diagonal(kz) / (2ω),
+		-Diagonal(kz) / ω + σₘ/2,
+		I - σₑ * Diagonal(kz) / (2ω),
+		-Diagonal(kz) / ω + σₘ/2,
 	], 2, 2))
+	# return A
 	B = mortar(reshape([
-		-Diagonal(kz) - ω₀ * M,
-		-Diagonal(kz) - ω₀ * N,
-		-Diagonal(kz) - ω₀ * M,
-		Diagonal(kz) + ω₀ * N,
+		I + σₑ * Diagonal(kz) / (2ω),
+		-(Diagonal(kz) / ω + σₘ/2),
+		-(I + σₑ * Diagonal(kz) / (2ω)),
+		-(Diagonal(kz) / ω + σₘ/2),
 	], 2, 2))
 	return A\B
 end
 
-# ╔═╡ 521f8552-1ba7-49a2-be1b-5e4815ccb8f8
-mysmatrix(TrivialDeltaLayer(), Diagonal([1, 1,1,1]), 1.0)
-
 # ╔═╡ 1b63a590-2a4f-44fe-9ff8-31baac0eeb47
-mysmatrix(TriviallyNonTrivialDeltaLayer(), kxy, 1.0)#[Block(2, 1)]
+myTMsmatrix(TriviallyNonTrivialDeltaLayer(), (kx ,ky), 1.2)[Block(1,2)]
 
 # ╔═╡ 21b38329-6cea-412e-837e-9038a44df9ea
-kxy
+kx
 
 # ╔═╡ 15fea0cd-8d53-4413-bc3c-fd89cc73ec0e
 DeltaRCWA.get_kz(Air(1), kxy, 1.0)
@@ -813,9 +826,10 @@ ifft(fft(Diagonal(1:4), 2), 1)
 # ╠═484f4b6a-8ccb-4519-9d04-fb0b505fc13a
 # ╠═f47a4fcb-fa16-48ab-850c-2a3de6bfeac7
 # ╠═6d4dd4c0-8e0c-4825-aa64-3a82ced17cd3
+# ╠═90d06519-9526-48c0-8560-116b7c112997
+# ╠═9ba33324-8561-4413-8343-f9b52601d788
 # ╠═0342e0f7-e654-41c2-9a56-b5e99d59ca27
 # ╠═36a24a19-bbdc-466e-8905-da41493c5f8d
-# ╠═7a11a4cb-930c-43b3-acfb-77737462c0f7
 # ╠═7fdb6893-010e-4a6a-9636-d59e966e2fac
 # ╠═3db65194-8647-41ff-8d30-8c79638b3753
 # ╠═06a9e35c-0400-4875-9ea7-86927ff288fa
@@ -872,6 +886,8 @@ ifft(fft(Diagonal(1:4), 2), 1)
 # ╠═521f8552-1ba7-49a2-be1b-5e4815ccb8f8
 # ╠═09179a65-c8ed-448f-89fc-1aac43191bd0
 # ╠═436afe39-699e-42b9-928f-868db66c2222
+# ╠═ad8538e9-b49d-4390-9c4d-6fc4fe236fe1
+# ╠═9efd0b2b-07d0-4949-b96f-88b01f78fa74
 # ╠═1a7442fc-0944-4ea2-baf6-26a70dd9526b
 # ╠═1b63a590-2a4f-44fe-9ff8-31baac0eeb47
 # ╠═21b38329-6cea-412e-837e-9038a44df9ea
