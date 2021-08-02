@@ -1,3 +1,5 @@
+export smat_star, rred_star
+
 """
     smat_star(A::T, B::T) where T<:BlockMatrix
 

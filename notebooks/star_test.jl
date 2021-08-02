@@ -40,14 +40,14 @@ d₁ = 1 * L₀
 # ╔═╡ 618bd4c7-a089-4d25-9491-16433c5479ae
 # First air layer
 # air₁ = Air(d₁)
-air₁ = UniformLayer(d₁, 1, 1)
+air₁ = UniformSlab(d₁, Vacuum())
 
 # ╔═╡ fc3390a9-caef-4602-b9fe-fe83cbe17cad
 # Depth of layer 2
 d₂ = 1 * L₀
 
 # ╔═╡ f0580da9-52db-4c40-8706-b537870ab1dc
-air₂ = UniformLayer(1, 1, 1)
+air₂ = UniformSlab(d₂, Vacuum())
 
 # ╔═╡ 4eb88559-8bbc-49f8-8d46-a4485892f57f
 md"
@@ -721,10 +721,10 @@ function thickness merely returns the identity.
 "
 
 # ╔═╡ 543c8328-ab82-435a-aca7-1f0ab573294d
-struct TrivialDeltaLayer <: DeltaScatterer end
+struct TrivialSheet <: RCWASheet{0} end
 
 # ╔═╡ 8da39a74-6081-4bb1-8d6a-1a0d9385e189
-function mysmatrix(layer::TrivialDeltaLayer, kxy::AbstractMatrix, ω₀::Real)
+function mysmatrix(layer::TrivialSheet, kxy::AbstractMatrix, ω₀::Real)
 	Nk = size(kxy, 2)
 	return mortar(reshape([
 		zeros(Bool, Nk, Nk),
@@ -738,7 +738,7 @@ end
 mysmatrix(TrivialDeltaLayer(), Diagonal([1, 1,1,1]), 1.0)
 
 # ╔═╡ 09179a65-c8ed-448f-89fc-1aac43191bd0
-struct TriviallyNonTrivialDeltaLayer <: DeltaScatterer end
+struct TriviallyNonTrivialDeltaLayer <: RCWASheet{0} end
 
 # ╔═╡ 436afe39-699e-42b9-928f-868db66c2222
 fft(Matrix(Diagonal([1, 1, 1])), 2)

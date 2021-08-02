@@ -1,3 +1,5 @@
+export TE, TM, Coupled
+
 abstract type AbstractPolarization end
 abstract type UncoupledPolarization <: AbstractPolarization end
 abstract type CoupledPolarization <: AbstractPolarization end

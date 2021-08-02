@@ -1,28 +1,22 @@
+export smatrix
+
 # Not to be confused with SMatrix from StaticArrays.jl!
 # This is a function to get a scattering matrix from a scattering layers
-"""
-    DeltaSMatrix()
 
-Internally build the dense scattering matrix 
 """
-function DeltaSMatrix(vz)
-    A = mortar(reshape([
-        -I + σₘ * vz,
-        -vz + σₑ,
-        I - σₘ * vz,
-        -vz + σₑ,
-    ], 2, 2))
-    B = mortar(reshape([
-        -I + σₘ * vz,
-        -vz + σₑ,
-        I - σₘ * vz,
-        -vz + σₑ,
-    ], 2, 2))
-    A\B
+    smatrix(::T where T <: RCWAScatterer, modes::PlanewaveModes)
+
+Returns the scattering matrix of a scatterer acting on the propagating plane wave modes.
+The default method returns the identity scattering matrix.
+"""
+function smatrix(::T where T <: RCWAScatterer, modes::PlanewaveModes)
+    # total number of propagating modes
+    N = sum(modes.is_propagating)
+    mortar(reshape([(false*I)(N), I(N), I(N), (false*I)(N)], 2, 2))
 end
 
 """
-    smatrix(scatterer::AbstractScatterer, k::NTuple{N, Frequencies}, ω::Float64)
+    smatrix(scatterer::RCWAScatterer, modes::PlanewaveModes)
 
 Returns a 2x2 BlockMatrix for the scattering of modes
 
@@ -30,20 +24,6 @@ scatterer::AbstractScatterer
 k::NTuple{N, Frequencies}, only implemented for N in [0, 1, 2]
 ω::Float64
 """
-function smatrix(scatterer::DeltaScatterer, modes::Modes)
-    # 
-    vᶻ = get_kz(Vacuum(), k, ω) ./ ω
-    σᵉ = get_σₑ(scatterer)/2
-    σᵐ = get_σₘ(scatterer)/2
-    Deltasmatrix()
+function smatrix(scatterer::T where T <: RCWASheet{1}, modes::PlanewaveModes)
+
 end
-
-# function smatrix(scatterer::DeltaScatterer, k::Tuple{Frequencies}, ω::Float64)
-#     kz = get_kz(Air(0), k, ω)
-
-# end
-
-
-# function smatrix(scatterer::DeltaScatterer, k::NTuple{2, Frequencies}, ω::Float64)
-#     error("NotImplemented")
-# end

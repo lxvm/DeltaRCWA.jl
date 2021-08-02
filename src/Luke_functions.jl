@@ -1,3 +1,5 @@
+export get_all_modes, get_prop_modes, get_transmissivity_normalincident
+
 """
 pass in array of M and N, L, lambda -> outputs S matrix and array of betas
 
