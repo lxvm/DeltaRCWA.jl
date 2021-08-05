@@ -1,4 +1,5 @@
-export RCWAStack, UniformMediumSheetStack
+# TODO: Make the data structure for the most general sequence of scatterers
+export RCWAStack
 
 struct RCWAStack{N} <: RCWAScatterer{N, 3}
     layers::NTuple{M, RCWAScatterer} where M
@@ -47,22 +48,4 @@ function smatrix(stack::RCWAStack, modes::PlanewaveModes)
         S = smat_star(S, smatrix(layer, modes))
     end
     return S
-end
-
-"""
-A simple tuple of sheets with a complementary tuple of the spacings between
-sheets in a UniformMedium
-"""
-struct UniformMediumSheetStack{N, L, D, T} <: RCWAScatterer{N, 3}
-    sheets::NTuple{L, RCWASheet{N}} # this is a tuple of pointers
-    depths::NTuple{D, <: Real} # this is a tuple of a concrete subtype of real
-    medium::UniformMedium{T}
-    function UniformMediumSheetStack(
-        sheets::NTuple{L, RCWASheet{N}},
-        depths::NTuple{D, <: Real},
-        medium::UniformMedium{T},
-    ) where {N, L, D, T}
-        L-1==D || throw(ArgumentError("there must be one gap less than the number of sheets"))
-        new{N, L, D, T}(sheets, depths, medium)
-    end
 end

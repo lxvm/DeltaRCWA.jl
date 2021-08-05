@@ -3,7 +3,7 @@ export SlitSheet
 """
 A geometry for a diffraction grating with slits
 """
-struct SlitSheet <: RCWASheet{1}
-    gap_center::Float64
-    gap_width::Float64
+struct SlitSheet{T <: Real} <: RCWASheet{1}
+    gap_center::T
+    gap_width::T
 end

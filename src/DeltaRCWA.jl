@@ -1,7 +1,7 @@
 module DeltaRCWA
 
-using Reexport: include
 using Reexport
+using RecipesBase
 
 @reexport using LinearAlgebra
 
@@ -10,7 +10,7 @@ using Reexport
 
 # Define the abstract types used in this module
 
-export RCWAScatterer
+export RCWAScatterer, RCWASheet, RCWASlab
 
 """
     RCWAScatterer{N, M}
@@ -37,9 +37,14 @@ include("UniformMedium.jl")
 include("polarizations.jl")
 include("PlanewaveModes.jl")
 include("smatrix.jl")
-include("RCWAProblem.jl")
-include("star_products.jl")
+include("sheets.jl")
 include("concrete_scatterers/_index.jl")
+include("DeltaRCWAProblem.jl")
+include("star_products.jl")
+include("plotting.jl")
+# files that should be extended to make a full RCWA implementation:
+include("RCWAProblem.jl")
+include("slabs.jl")
 
 include("Luke_functions.jl")
 
