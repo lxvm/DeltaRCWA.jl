@@ -4,14 +4,17 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 251bf9b8-f462-11eb-25fb-4b0194612111
-begin
-	using Pkg
-	Pkg.activate(ENV["HOME"] * "/.julia/dev/DeltaRCWA")
-end
+# ╔═╡ 628d5d5d-2753-47e3-a02b-21b4a89a159e
+import Pkg
+
+# ╔═╡ 9c58eb1a-313f-4f89-9958-7f33c7a072d3
+Pkg.activate(".")
 
 # ╔═╡ 55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
 using DeltaRCWA
+
+# ╔═╡ 67fb8117-7d5b-4536-9e36-7dda36997dff
+using BlockArrays: Block
 
 # ╔═╡ 65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 using Plots
@@ -221,8 +224,10 @@ end
 plot(real.(ifft(exp.(im .* test_sol.modes.kz) .* reshape(ComplexF64[n == 4 ? 1 : 0 for n in 1:nmodes], length.(test_sol.modes.k⃗)))))
 
 # ╔═╡ Cell order:
-# ╠═251bf9b8-f462-11eb-25fb-4b0194612111
+# ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
+# ╠═9c58eb1a-313f-4f89-9958-7f33c7a072d3
 # ╠═55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
+# ╠═67fb8117-7d5b-4536-9e36-7dda36997dff
 # ╠═fb39de4e-b436-4dd8-a1b4-0301d75f1e3c
 # ╠═414f2e99-226e-41f6-ba05-44539584f71f
 # ╠═5fb3118e-c89f-4e5e-951b-4d7aacda21c7

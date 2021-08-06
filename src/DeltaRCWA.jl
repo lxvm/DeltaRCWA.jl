@@ -1,6 +1,6 @@
 module DeltaRCWA
 
-using LinearAlgebra: I, inv
+using LinearAlgebra: I, inv, Diagonal
 
 using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
 using FFTW: fftfreq, fft, ifft, Frequencies
