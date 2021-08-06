@@ -1,5 +1,5 @@
-using Pkg
-Pkg.activate(ENV["HOME"] * "/.julia/dev/DeltaRCWA/")
+# using Pkg
+# Pkg.activate(ENV["HOME"] * "/.julia/dev/DeltaRCWA/")
 
 using DeltaRCWA
 
@@ -25,8 +25,8 @@ xvec = [n*dx-L/2 for n in nvec]
 kₓ = 2*pi*fftfreq(length(nvec), 1/dx)
 β = @. sqrt(Complex(k^2 - kₓ^2))
 
-# u_p = ComplexF64[n == 0 ? 1 : 0 for n in nvec]
-u_p = fft(uInc(xvec, 0))/length(nvec)
+u_p = ComplexF64[n == 1 ? 1 : 0 for n in nvec]
+# u_p = fft(uInc(xvec, 0))/length(nvec)
 u_n = zeros(ComplexF64, length(nvec))
 M = Matrix(Diagonal(M₀(xvec)))
 N = Matrix(Diagonal(N₀(xvec)))

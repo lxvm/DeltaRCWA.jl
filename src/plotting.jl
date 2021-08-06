@@ -1,6 +1,6 @@
 # examples: https://github.com/JuliaPlots/ExamplePlots.jl/blob/master/notebooks/usertype_recipes.ipynb
 
-@recipe function f(sol::DeltaRCWASolution{1} where {S, T}; part::Symbol=:real)
+@recipe function f(sol::DeltaRCWASolution{1}; part=:real)
     # Nz = sol.modes.dims[1][1]
     # dz = sol.modes.dims[1][2] / Nz
     # z⃗ = range(0, step=dz, length=Nz)
@@ -12,6 +12,7 @@
     AO₁ = zeros(length.((x⃗, z⃗₁)))
     AI₂ = zeros(length.((x⃗, z⃗₂)))
     for i in eachindex(z⃗₂)
+        # AO₂ = eval(part).(ifft(exp.(kron(im * z⃗₂, sol.modes.kz)), dims=1))
         AO₂[:, i] = eval(part).(ifft(exp.((z⃗₂[i] * im) .* sol.modes.kz) .* sol.O₂))
         AI₂[:, i] = eval(part).(ifft(exp.((z⃗₂[i] * im) .* sol.modes.kz) .* sol.I₂))
         AI₁[:, i] = eval(part).(ifft(exp.((z⃗₁[i] * im) .* sol.modes.kz) .* sol.I₁))

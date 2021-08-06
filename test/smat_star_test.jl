@@ -1,15 +1,14 @@
 "Calculate the inverse of the S-matrix star"
 function inv_smat_star(S)
     M = inv(S)
-    return mortar(reshape([
-        M[Block(2, 2)], M[Block(1, 2)], M[Block(2, 1)], M[Block(1, 1)]
-    ], 2, 2))
-#    return mortar(reshape([
-#        inv(S[Block(2,2)] - S[Block(2,1)] * inv(S[Block(1,1)]) * S[Block(1,2)]),
-#        inv(S[Block(2,1)] - S[Block(2,2)] * inv(S[Block(1,2)]) * S[Block(1,1)]),
-#        inv(S[Block(1,2)] - S[Block(1,1)] * inv(S[Block(2,1)]) * S[Block(2,2)]),
-#        inv(S[Block(1,1)] - S[Block(1,2)] * inv(S[Block(2,2)]) * S[Block(2,1)]),
-#    ], 2, 2))
+    mortar(
+        (M[Block(2, 2)], M[Block(2, 1)]),
+        (M[Block(1, 2)], M[Block(1, 1)]),
+    )
+#    mortar(
+#        (inv(S[Block(2,2)] - S[Block(2,1)] * inv(S[Block(1,1)]) * S[Block(1,2)]), inv(S[Block(1,2)] - S[Block(1,1)] * inv(S[Block(2,1)]) * S[Block(2,2)])),
+#        (inv(S[Block(2,1)] - S[Block(2,2)] * inv(S[Block(1,2)]) * S[Block(1,1)]), inv(S[Block(1,1)] - S[Block(1,2)] * inv(S[Block(2,2)]) * S[Block(2,1)])),
+#    )
 end
 
 for n in 2:5, m in 2:5

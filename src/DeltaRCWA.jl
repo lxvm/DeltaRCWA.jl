@@ -1,12 +1,10 @@
 module DeltaRCWA
 
-using Reexport
-using RecipesBase
+using LinearAlgebra: I, inv, Diagonal
 
-@reexport using LinearAlgebra
-
-@reexport using BlockArrays
-@reexport using FFTW
+using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
+using FFTW: fftfreq, fft, ifft, Frequencies
+using RecipesBase: @recipe, @series
 
 # Define the abstract types used in this module
 
@@ -35,7 +33,7 @@ const minMdim = 2 # curves and points do not have the symmetries for RCWA
 
 include("UniformMedium.jl")
 include("polarizations.jl")
-include("PlanewaveModes.jl")
+include("modes.jl")
 include("smatrix.jl")
 include("sheets.jl")
 include("concrete_scatterers/_index.jl")
