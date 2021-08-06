@@ -1,8 +1,11 @@
-using Test
+using LinearAlgebra: I, inv
+using Test: @test, @testset
 
-using deltaRCWA
+using BlockArrays: mortar, Block, BlockMatrix
 
-@testset "deltaRCWA.jl" begin
+using DeltaRCWA
+
+@testset "DeltaRCWA.jl" begin
     @testset "S-matrix  star properties" begin include("smat_star_test.jl") end
     @testset "Redheffer star properties" begin include("rred_star_test.jl") end
 end
