@@ -13,7 +13,7 @@ struct SheetStack{N, L, D} <: RCWAScatterer{N, 3}
     end
 end
 
-function smatrix(stack::SheetStack, modes::PlanewaveModes, pol::AbstractPolarization)::BlockMatrix
+function smatrix(stack::SheetStack, modes::PlanewaveModes, pol::AbstractPolarization)
     S = smatrix(stack.sheets[1], modes, pol)
     for i in eachindex(stack.depths)
         S = smat_star(S, smat_star(

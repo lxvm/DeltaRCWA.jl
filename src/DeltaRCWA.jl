@@ -4,7 +4,7 @@ using LinearAlgebra: I, inv, Diagonal
 
 using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
 using FFTW: fftfreq, fft, ifft, Frequencies
-using RecipesBase: @recipe, @series
+using RecipesBase
 
 # Define the abstract types used in this module
 
@@ -28,7 +28,8 @@ const minNdim = 0 # all tangential dimensions can be invariant
 
 const maxMdim = 3 # Volumes are the largest dimensional manifolds in real space
 const minMdim = 2 # curves and points do not have the symmetries for RCWA
-
+export terrible
+const terrible = 1
 # include code
 
 include("UniformMedium.jl")

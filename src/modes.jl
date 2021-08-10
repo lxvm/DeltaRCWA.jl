@@ -14,16 +14,15 @@ a medium, the vacuum values of ϵ = μ = 1 are used.
 get_kz(k⃗, ω) = _get_kz(k⃗, ω^2)
 get_kz(k⃗, ω, M::UniformMedium{T} where T) = _get_kz(k⃗, (ω^2) * (M.ϵ * M.μ))
 
-function _get_kz(k⃗::NTuple{N, Frequencies{T}}, k⃗²::T)::Array{Complex{T}, N} where {N, T}
+function _get_kz(k⃗::NTuple{N, Frequencies{Float64}}, k⃗²::T)::Array{Complex{T}, N} where {N, T <: Real}
     map(e⃗ -> sqrt(Complex(k⃗² - mapreduce(abs2, +, e⃗, init=zero(T)))), Iterators.product(k⃗...))
-    # [sqrt(Complex(k⃗² - mapreduce(abs2, +, e⃗, init=zero(T)))) for e⃗ in Iterators.product(k⃗...)]
 end
 
 struct PlanewaveModes{N}
     dims::NTuple{N, Tuple{Int64, Float64}}
     ω::Float64
-    k⃗::NTuple{N, Frequencies}
-    x⃗::NTuple{N, StepRangeLen}
+    k⃗::NTuple{N, Frequencies{Float64}}
+    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}
     M::UniformMedium
     kz::Array{ComplexF64, N}
     is_propagating::BitArray{N}
@@ -43,7 +42,7 @@ the lattice constant in that periodic dimension (length of unit cell).
 """
 function PlanewaveModes(ω::Float64, dims::NTuple{N, Tuple{Int64, Float64}}, M::UniformMedium) where N
     x⃗ = Tuple(range(0, step=e[2] / e[1], length=e[1]) for e in dims)
-    k⃗ = Tuple(fftfreq(e[1], e[1] / e[2]) for e in dims)
+    k⃗ = Tuple(2π * fftfreq(e[1], e[1] / e[2]) for e in dims)
     kz = get_kz(k⃗, ω, M)
     is_propagating = BitArray(@. isreal(kz) & !(iszero(kz)))
     PlanewaveModes{N}(dims, ω, k⃗, x⃗, M, kz, is_propagating)

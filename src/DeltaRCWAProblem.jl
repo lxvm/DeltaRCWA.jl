@@ -21,16 +21,13 @@ struct DeltaRCWAProblem{N}
     function DeltaRCWAProblem(
         structure::RCWAScatterer{N, M} where M,
         modes::PlanewaveModes{N},
-        pol::P where P <: AbstractPolarization,
-        I₁::T where T <: AbstractArray{<: Number, N},
-        I₂::S where S <: AbstractArray{<: Number, N},
+        pol::AbstractPolarization,
+        I₁::AbstractArray{<: Number, N},
+        I₂::AbstractArray{<: Number, N},
     ) where N
         @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂))
         enforce_N_pol(N, pol)
-        new{N}(structure, modes, pol,
-            convert(Array{ComplexF64}, I₁),
-            convert(Array{ComplexF64}, I₂),
-        )
+        new{N}(structure, modes, pol, convert.(Array{ComplexF64}, (I₁, I₂))...)
     end
 end
 
@@ -51,20 +48,12 @@ struct DeltaRCWASolution{N}
     ) where N
         @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂, O₁, O₂))
         enforce_N_pol(N, pol)
-        new{N}(modes, pol, 
-            convert(Array{ComplexF64}, I₁),
-            convert(Array{ComplexF64}, I₂),
-            convert(Array{ComplexF64}, O₁),
-            convert(Array{ComplexF64}, O₂),
-        )
+        new{N}(modes, pol, convert.(Array{ComplexF64}, (I₁, I₂, O₁, O₂))...)
     end
 end
 
 function solve(prob::DeltaRCWAProblem{N})::DeltaRCWASolution{N} where N
-    sol = smatrix(prob.structure, prob.modes, prob.pol) * BlockVector(
-        vcat(reshape(prob.I₁, :), reshape(prob.I₂, :)),
-        [length(prob.I₁), length(prob.I₂)]
-    )
+    sol = smatrix(prob.structure, prob.modes, prob.pol) * mortar(reshape.([prob.I₁, prob.I₂], :))
     DeltaRCWASolution(
         prob.modes, prob.pol, prob.I₁, prob.I₂,
         reshape(sol[Block(1)], size(prob.I₁)),
