@@ -2,7 +2,7 @@
 export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ
 
 function nonconducting(::RCWASheet{N}, x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}) where N
-    zeros(Bool, length.(x⃗))
+    zeros(ComplexF64, length.(x⃗))
 end
 
 σₑˣˣ(sheet, x⃗) = nonconducting(sheet, x⃗)

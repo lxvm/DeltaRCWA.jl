@@ -5,6 +5,7 @@ using LinearAlgebra: I, inv, Diagonal
 using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
 using FFTW: fftfreq, fft, ifft, Frequencies
 using RecipesBase
+using KrylovKit: linsolve
 
 # Define the abstract types used in this module
 
@@ -36,6 +37,7 @@ include("UniformMedium.jl")
 include("polarizations.jl")
 include("modes.jl")
 include("smatrix.jl")
+include("smatrixfree.jl")
 include("sheets.jl")
 include("concrete_scatterers/_index.jl")
 include("DeltaRCWAProblem.jl")

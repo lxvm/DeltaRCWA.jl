@@ -52,11 +52,17 @@ struct DeltaRCWASolution{N}
     end
 end
 
-function solve(prob::DeltaRCWAProblem{N})::DeltaRCWASolution{N} where N
-    sol = smatrix(prob.structure, prob.modes, prob.pol) * mortar(reshape.([prob.I₁, prob.I₂], :))
-    DeltaRCWASolution(
-        prob.modes, prob.pol, prob.I₁, prob.I₂,
-        reshape(sol[Block(1)], size(prob.I₁)),
-        reshape(sol[Block(2)], size(prob.I₂))
-    )
+function solve(prob::DeltaRCWAProblem{N}; method=:dense)::DeltaRCWASolution{N} where N
+    if method == :dense
+        sol = smatrix(prob.structure, prob.modes, prob.pol) * mortar(reshape.([prob.I₁, prob.I₂], :))
+        O₁ = reshape(sol[Block(1)], size(prob.I₁))
+        O₂ = reshape(sol[Block(2)], size(prob.I₂))
+    elseif method == :matrixfree
+        sol = smatrixfree(prob.structure, prob.modes, prob.pol)(vcat(reshape.([prob.I₁, prob.I₂], :)...))
+        O₁ = reshape(sol[1:length(prob.I₁)], size(prob.I₁))
+        O₂ = reshape(sol[(length(prob.I₁)+1):sum(length.([prob.I₁, prob.I₂]))], size(prob.I₂))
+    else
+        return error("keyword argument `method` must be one of `:dense`, `:matrixfree`")
+    end
+    return DeltaRCWASolution(prob.modes, prob.pol, prob.I₁, prob.I₂, O₁, O₂)
 end
