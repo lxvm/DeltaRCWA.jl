@@ -3,7 +3,7 @@ module DeltaRCWA
 using LinearAlgebra: I, inv, Diagonal
 
 using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
-using FFTW: fftfreq, fft, ifft, Frequencies
+using FFTW: fftfreq, fft, ifft, bfft, Frequencies
 using RecipesBase
 using KrylovKit: linsolve
 
@@ -12,25 +12,32 @@ using KrylovKit: linsolve
 export RCWAScatterer, RCWASheet, RCWASlab
 
 """
-    RCWAScatterer{N, M}
+    RCWAScatterer{T <: Number, N}
 
-Supertype for structures with `N` periodic dimensions off the propagation axis
-that can be parametrized with `M` coordinate axes.
-`N=0` is for a 1D photonic crystal, `N=1` is for 2D and so on.
-`M=2` is for a sheet/surface/interface, `M=3` is for a slab/volume/layer.
-Note that `M<=3, N<=2`.
+Supertype for structures with a unit cell having `N` periodic dimensions
+(determines the dimensionality of the problem) whose geometry is parametrized
+by parameters of type `T`.
+`N=0` is for a 1D photonic crystal, `N=1` is for 2D and so on. Note that `N<=2`.
 """
-abstract type RCWAScatterer{N, M} end
-abstract type RCWASheet{N} <: RCWAScatterer{N, 2} end
-abstract type RCWASlab{N} <: RCWAScatterer{N, 3} end
+abstract type RCWAScatterer{T <: Number, N} end
 
-const maxNdim = 2 # there are at most 2 periodic tangential dimensions
-const minNdim = 0 # all tangential dimensions can be invariant
+"""
+    RCWASheet{T, N} <: RCWAScatterer{T, N}
 
-const maxMdim = 3 # Volumes are the largest dimensional manifolds in real space
-const minMdim = 2 # curves and points do not have the symmetries for RCWA
-export terrible
-const terrible = 1
+An abstract type to dispatch methods for 2D structures whose scattering
+can be modelled with Generalized Sheet Transition Conditions (GSTCs).
+"""
+abstract type RCWASheet{T, N} <: RCWAScatterer{T, N} end
+
+"""
+    RCWASlab{T, N} <: RCWAScatterer{T, N}
+
+An abstract type to dispatch methods for 3D structures, such as uniform media.
+General methods to calculate the eigenmodes of the wave equation in variable
+impedance slabs could be implemented to make this software a full RCWA solver.
+"""
+abstract type RCWASlab{T, N} <: RCWAScatterer{T, N} end
+
 # include code
 
 include("UniformMedium.jl")
@@ -43,9 +50,6 @@ include("concrete_scatterers/_index.jl")
 include("DeltaRCWAProblem.jl")
 include("star_products.jl")
 include("plotting.jl")
-# files that should be extended to make a full RCWA implementation:
-include("RCWAProblem.jl")
-include("slabs.jl")
 
 include("Luke_functions.jl")
 

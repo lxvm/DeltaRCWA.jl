@@ -12,47 +12,51 @@ export DeltaRCWAProblem, DeltaRCWASolution, solve
 This type of problem assumes that the only type of scatterer are sheets and that
 the solution can be expressed entirely by one set of modes
 """
-struct DeltaRCWAProblem{N}
-    structure::RCWAScatterer{N, M} where M
-    modes::PlanewaveModes{N}
+struct DeltaRCWAProblem{T₁, T₂, N, L}
+    structure::SheetStack{T₁, N, L}
+    modes::PlanewaveModes{T₂, N}
     pol::AbstractPolarization
     I₁::Array{ComplexF64, N}
     I₂::Array{ComplexF64, N}
     function DeltaRCWAProblem(
-        structure::RCWAScatterer{N, M} where M,
-        modes::PlanewaveModes{N},
+        structure::SheetStack{T₁, N, L},
+        modes::PlanewaveModes{T₂, N},
         pol::AbstractPolarization,
         I₁::AbstractArray{<: Number, N},
         I₂::AbstractArray{<: Number, N},
-    ) where N
+    ) where {T₁, T₂, N, L}
         @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂))
         enforce_N_pol(N, pol)
-        new{N}(structure, modes, pol, convert.(Array{ComplexF64}, (I₁, I₂))...)
+        new{T₁, T₂, N, L}(structure, modes, pol, convert.(Array{ComplexF64}, (I₁, I₂))...)
     end
 end
 
-struct DeltaRCWASolution{N}
-    modes::PlanewaveModes{N}
+function DeltaRCWAProblem(sheet::RCWASheet, modes, pol, I₁, I₂)
+    DeltaRCWAProblem(SheetStack((sheet, ), ()), modes, pol, I₁, I₂)
+end
+
+struct DeltaRCWASolution{T, N}
+    modes::PlanewaveModes{T, N}
     pol::AbstractPolarization
     I₁::Array{ComplexF64, N}
     I₂::Array{ComplexF64, N}
     O₁::Array{ComplexF64, N}
     O₂::Array{ComplexF64, N}
     function DeltaRCWASolution(
-        modes::PlanewaveModes{N},
+        modes::PlanewaveModes{T, N},
         pol::AbstractPolarization,
         I₁::AbstractArray{<: Number, N},
         I₂::AbstractArray{<: Number, N},
         O₁::AbstractArray{<: Number, N},
         O₂::AbstractArray{<: Number, N},
-    ) where N
+    ) where {T, N}
         @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂, O₁, O₂))
         enforce_N_pol(N, pol)
-        new{N}(modes, pol, convert.(Array{ComplexF64}, (I₁, I₂, O₁, O₂))...)
+        new{T, N}(modes, pol, convert.(Array{ComplexF64}, (I₁, I₂, O₁, O₂))...)
     end
 end
 
-function solve(prob::DeltaRCWAProblem{N}; method=:dense)::DeltaRCWASolution{N} where N
+function solve(prob::DeltaRCWAProblem{T₁, T₂, N, L}; method=:dense)::DeltaRCWASolution{T₂, N} where {T₁, T₂, N, L}
     if method == :dense
         sol = smatrix(prob.structure, prob.modes, prob.pol) * mortar(reshape.([prob.I₁, prob.I₂], :))
         O₁ = reshape(sol[Block(1)], size(prob.I₁))

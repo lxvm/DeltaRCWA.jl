@@ -13,8 +13,14 @@ end
 # ╔═╡ 898fa516-591d-4831-8c65-f0e758922d15
 using DeltaRCWA
 
+# ╔═╡ e8668469-d378-463e-a8be-324f2362d90b
+using FFTW
+
+# ╔═╡ 189e4b15-a8bf-4b9b-8832-1e41be5ade12
+using LinearAlgebra
+
 # ╔═╡ 8f32367b-b19b-4c18-80ff-5edaabcfb0d9
-include("NystromMethodQP.jl")
+include("NystromMethodQP.jl");
 
 # ╔═╡ a8253062-df3c-11eb-26e1-0dcff18bf886
 md"
@@ -288,7 +294,7 @@ heatmap(x,y,abs2.(U⁻),color=:RdBu,clim=(-1.0,1.0))
 
 # ╔═╡ 6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 md"
-## Luke's reproduction
+## Luke's program
 
 Extra test: add a trivial delta layer that should transmit everything and check that 
 it doesn't add a phase normalization
@@ -340,9 +346,6 @@ u_out = S*u_in
 u_out_p = u_out[1:length(nvec)]
 u_out_n = u_out[length(nvec)+1:2*length(nvec)]
 end
-
-# ╔═╡ 95cb80ae-4979-47e1-a798-11c8f33259f5
-reshape(kₓ, (size(kₓ, 1), 1))
 
 # ╔═╡ 5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
 begin
@@ -469,87 +472,12 @@ size(reshape(uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx)[1, :])
 # ╔═╡ 65008c5a-f0d1-471e-81d2-037e0c577ecf
 size(transpose(Emat_in))
 
-# ╔═╡ 992eb33a-3fcc-4d1b-bf48-3f33b8c2a1e4
-md"
-## Test for a trivial layer
-
-We want to make sure that the scattering matrix for a transparent layer of delta
-function thickness merely returns the identity.
-"
-
-# ╔═╡ 543c8328-ab82-435a-aca7-1f0ab573294d
-struct TrivialSheet <: RCWASheet{0} end
-
-# ╔═╡ 8da39a74-6081-4bb1-8d6a-1a0d9385e189
-function mysmatrix(layer::TrivialSheet, kxy::AbstractMatrix, ω₀::Real)
-	Nk = size(kxy, 2)
-	return mortar(reshape([
-		zeros(Bool, Nk, Nk),
-		Matrix(I, Nk, Nk),
-		Matrix(I, Nk, Nk),
-		zeros(Bool, Nk, Nk),
-	], 2, 2))		
-end
-
-# ╔═╡ 521f8552-1ba7-49a2-be1b-5e4815ccb8f8
-mysmatrix(TrivialDeltaLayer(), Diagonal([1, 1,1,1]), 1.0)
-
-# ╔═╡ 09179a65-c8ed-448f-89fc-1aac43191bd0
-struct TriviallyNonTrivialDeltaLayer <: RCWASheet{0} end
-
-# ╔═╡ 436afe39-699e-42b9-928f-868db66c2222
-fft(Matrix(Diagonal([1, 1, 1])), 2)
-
-# ╔═╡ ad8538e9-b49d-4390-9c4d-6fc4fe236fe1
-Air(depth) = UniformLayer(depth, 1, 1)
-
-# ╔═╡ 2e9cfa71-a698-4cd3-9785-0d5056b575b2
-smatrix(Air(0), kxy, 1)[Block(2,1)]
-
-# ╔═╡ 9efd0b2b-07d0-4949-b96f-88b01f78fa74
-Matrix(I, 2,2 )
-
-# ╔═╡ 1a7442fc-0944-4ea2-baf6-26a70dd9526b
-function myTMsmatrix(layer::TriviallyNonTrivialDeltaLayer, kxy::NTuple{2, Frequencies}, ω::Real)
-	kz = DeltaRCWA.get_kz(Air(1), kxy, ω)
-	Nk = size(kz, 1)
-	σₑ = zeros(Nk, Nk)
-	σₘ = zeros(Nk, Nk)
-	A = mortar(reshape([
-		-I + σₑ * Diagonal(kz) / (2ω),
-		-Diagonal(kz) / ω + σₘ/2,
-		I - σₑ * Diagonal(kz) / (2ω),
-		-Diagonal(kz) / ω + σₘ/2,
-	], 2, 2))
-	# return A
-	B = mortar(reshape([
-		I + σₑ * Diagonal(kz) / (2ω),
-		-(Diagonal(kz) / ω + σₘ/2),
-		-(I + σₑ * Diagonal(kz) / (2ω)),
-		-(Diagonal(kz) / ω + σₘ/2),
-	], 2, 2))
-	return A\B
-end
-
-# ╔═╡ 1b63a590-2a4f-44fe-9ff8-31baac0eeb47
-myTMsmatrix(TriviallyNonTrivialDeltaLayer(), (kx ,ky), 1.2)[Block(1,2)]
-
-# ╔═╡ 21b38329-6cea-412e-837e-9038a44df9ea
-kx
-
-# ╔═╡ 15fea0cd-8d53-4413-bc3c-fd89cc73ec0e
-DeltaRCWA.get_kz(Air(1), kxy, 1.0)
-
-# ╔═╡ b4413619-b7bc-4909-89b3-21a22d2b0571
-ifft(fft(Diagonal(1:4), 2), 1)
-
-# ╔═╡ 92b9913c-de6d-4946-a82c-1e1568f3da5a
-
-
 # ╔═╡ Cell order:
 # ╠═a8253062-df3c-11eb-26e1-0dcff18bf886
 # ╠═5c283082-518b-45c6-907a-e80945b1a4e4
 # ╠═898fa516-591d-4831-8c65-f0e758922d15
+# ╠═e8668469-d378-463e-a8be-324f2362d90b
+# ╠═189e4b15-a8bf-4b9b-8832-1e41be5ade12
 # ╠═22081b08-f086-4a64-b349-b6938c1c4da1
 # ╠═1ef4e805-3dd9-4f39-a697-ddc0b4f04ad8
 # ╠═8f32367b-b19b-4c18-80ff-5edaabcfb0d9
@@ -570,7 +498,6 @@ ifft(fft(Diagonal(1:4), 2), 1)
 # ╠═a022ef8b-03cc-42cc-ac9e-4da96e3edecb
 # ╠═66a8554e-1b71-4776-a903-c9ee54f1d64b
 # ╠═6045bf4a-e6ac-4411-bd0e-171ee51f3c97
-# ╠═95cb80ae-4979-47e1-a798-11c8f33259f5
 # ╠═a82986c7-007e-4b6c-9afa-530dc062c5ce
 # ╠═5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
 # ╠═ebef37ce-d77e-4fc0-84d2-d147c6f9a0b6
@@ -589,18 +516,3 @@ ifft(fft(Diagonal(1:4), 2), 1)
 # ╠═15d11b59-0a4d-4f18-8704-3277142f8b59
 # ╠═3199a72b-6c1d-4479-96f2-44ec877f8a4f
 # ╠═65008c5a-f0d1-471e-81d2-037e0c577ecf
-# ╠═992eb33a-3fcc-4d1b-bf48-3f33b8c2a1e4
-# ╠═543c8328-ab82-435a-aca7-1f0ab573294d
-# ╠═2e9cfa71-a698-4cd3-9785-0d5056b575b2
-# ╠═8da39a74-6081-4bb1-8d6a-1a0d9385e189
-# ╠═521f8552-1ba7-49a2-be1b-5e4815ccb8f8
-# ╠═09179a65-c8ed-448f-89fc-1aac43191bd0
-# ╠═436afe39-699e-42b9-928f-868db66c2222
-# ╠═ad8538e9-b49d-4390-9c4d-6fc4fe236fe1
-# ╠═9efd0b2b-07d0-4949-b96f-88b01f78fa74
-# ╠═1a7442fc-0944-4ea2-baf6-26a70dd9526b
-# ╠═1b63a590-2a4f-44fe-9ff8-31baac0eeb47
-# ╠═21b38329-6cea-412e-837e-9038a44df9ea
-# ╠═15fea0cd-8d53-4413-bc3c-fd89cc73ec0e
-# ╠═b4413619-b7bc-4909-89b3-21a22d2b0571
-# ╠═92b9913c-de6d-4946-a82c-1e1568f3da5a

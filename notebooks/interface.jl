@@ -54,6 +54,52 @@ This is a copy of Luke's code testing Carlos' surface impedance example, includi
 the fields after scattering.
 "
 
+# ╔═╡ e9534450-9a3d-4efa-a3e6-4c9aba4e1646
+begin
+#### Luke's solver
+k = 10.0
+λ = 2*pi/k
+θ = -π/2.0 # incidence angle (measured with respect to the x axis)
+α = k*cos(θ)
+β = k*sin(θ)
+uInc(x,y)= @. exp(1im*α*x+1im*β*y)  # incident planewave
+
+θᵗ = -π/8    # transmitted field angle
+d  = cos(θᵗ)-cos(θ)
+L = 2*(2*π)/(k*abs(d))  # Unit cell width
+M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x))
+N₀(x) = @. 1e-8-sin(θ)*(1-exp(1im*k*d*x))
+
+nvec = 0:99
+dx = L/length(nvec)
+xvec = [n*dx-L/2 for n in nvec]
+kₓ = 2*pi*fftfreq(length(nvec), 1/dx)
+β = @. sqrt(Complex(k^2 - kₓ^2))
+
+M = Matrix(Diagonal(M₀(xvec)))
+N = Matrix(Diagonal(N₀(xvec)))
+
+A = [-Diagonal(β)-k*ifft(fft(M, 2), 1)    -Diagonal(β)-k*ifft(fft(M, 2), 1);
+    -Diagonal(β)-k*ifft(fft(N, 2), 1)     Diagonal(β)+k*ifft(fft(N, 2), 1)]
+B = [-Diagonal(β)+k*ifft(fft(M, 2), 1)    -Diagonal(β)+k*ifft(fft(M, 2), 1);
+    -Diagonal(β)+k*ifft(fft(N, 2), 1)     Diagonal(β)-k*ifft(fft(N, 2), 1)]
+
+S = A\B
+end;
+
+# ╔═╡ c2dcb3c6-6fa0-4edf-b9dc-a168c178214b
+begin
+	### Luke's solver with one of the rows multiplied by the inverted resisitivity
+	AA = [-Diagonal(β)-k*ifft(fft(M, 2), 1)    -Diagonal(β)-k*ifft(fft(M, 2), 1);
+	    -k\ifft(fft(inv(N), 2), 1)*Diagonal(β)-I     k\ifft(fft(inv(N), 2), 1)*Diagonal(β)+I]
+	BB = [-Diagonal(β)+k*ifft(fft(M, 2), 1)    -Diagonal(β)+k*ifft(fft(M, 2), 1);
+	    -k\ifft(fft(inv(N), 2), 1)*Diagonal(β)+I     k\ifft(fft(inv(N), 2), 1)*Diagonal(β)-I]
+	SS = AA \ BB
+end;
+
+# ╔═╡ 0a3d4a56-d783-4bd9-9392-17ade6242a97
+S ≈ SS
+
 # ╔═╡ db5067ad-60a3-4f75-a25e-441ccf61ea6f
 md"
 ## Using DeltaRCWA
@@ -63,9 +109,9 @@ I will also give this material these properties for the TM polarization,
 since this would cause infinite electric conductivity but finite magnetic.
 These are the stages to using the solver, which needs this data
 ```julia
-struct DeltaRCWAProblem{N}
-    structure::RCWAScatterer{N, M} where M
-    modes::PlanewaveModes{N}
+struct DeltaRCWAProblem{T₁, T₂, N, L}
+    structure::SheetStack{T₁, N, L}
+    modes::PlanewaveModes{T₂, N}
     pol::AbstractPolarization
     I₁::Array{ComplexF64, N}
     I₂::Array{ComplexF64, N}
@@ -78,15 +124,34 @@ periodicities of space in the unit cell where `DeltaRCWA` solves for the fields.
 `N` refers to the number of dimensions along which the unit cell is periodic.
 Along these periodic dimensions, the solutions can be expanded in the Fourier basis
 due to Bloch's theorem (much like the [Kronig-Penny model](https://en.wikipedia.org/wiki/Particle_in_a_one-dimensional_lattice)).
-This data can be supplied with the following information:
+The full structure is:
+```julia
+struct PlanewaveModes{T, N}
+    ω::Float64
+    M::UniformMedium{T}
+    dims::NTuple{N, Tuple{Int64, Float64}}
+    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}
+    k⃗::NTuple{N, Frequencies{Float64}}
+    kz::Array{ComplexF64, N}
+end
+```
+This data can be supplied with the following information (using convenience methods):
 #### Wave frequency
 Choose an `ω::Float64` for the temporal frequency of the wave
 #### Unit cell dimensions and discretization
 For each periodic dimension, give a number of grid points per unit cell and a size of 
 the unit cell: `dims::NTuple{N, Tuple{Int64,Float64}}`
 #### Wave medium
-Planewaves are the eigenmodes of uniform media. Define the medium properties with the
-constructor `UniformMedium{T <: Number}(ϵ::T, μ::T)`, or for vacuum just `Vacuum()`.
+Planewaves are the eigenmodes of uniform media. Define the medium properties with
+either constructor
+```julia
+struct UniformMedium{T <: Number}
+    ϵ::T
+    μ::T
+end
+
+Vacuum() = UniformMedium(true, true)
+```
 #### Polarization
 This isn't stored in `PlanewaveModes`, but it is necessary information for 2D
 photonic crystals with diagonal conductivity matrices, when the TE and TM
@@ -120,6 +185,14 @@ In order to put 2 or more sheets in a sequence, separated by a uniform medium
 Create a Tuple of the sheets you want to scatter off of and create a second Tuple
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
+```julia
+struct SheetStack{T, N, L} <: RCWAScatterer{T, N}
+    sheets::Tuple{RCWASheet{T, N}, Vararg{RCWASheet{T, N}, L}}
+    depths::Tuple{Vararg{Float64, L}}
+end
+```
+For convenience in defining a problem with one sheet, the DeltaRCWAProblem constructor
+will turn the sheet into a sheetstack for you.
 #### Methods that a `RCWASheet` implements
 Any `RCWASheet` may implement the following 8 methods
 `σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ`
@@ -148,7 +221,8 @@ object.
 ### Analysis
 The `DeltaRCWASolution` objects have special methods to analyze and visualize them.
 #### Plotting
-`plot(::DeltaRCWASolution{1})` should just work! See the examples below for usage.
+`plot(::DeltaRCWASolution{T, 1} where T)` should just work!
+See the examples below for usage.
 ### Project TODO
 - Implement a solver for `RCWASheet{2}`/3D photonic crystals 
 - Implement functions to:
@@ -162,77 +236,21 @@ The `DeltaRCWASolution` objects have special methods to analyze and visualize th
 # ╔═╡ d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
 modeN = 0
 
-# ╔═╡ aa87c7bd-4d9e-49da-8cf0-4a0fb6081588
+# ╔═╡ 483e04a7-ac35-44e1-88e7-6e18737d7110
 begin
-#### Luke's solver
-k = 10.0
-λ = 2*pi/k
-θ = -π/2.0 # incidence angle (measured with respect to the x axis)
-α = k*cos(θ)
-β = k*sin(θ)
-uInc(x,y)= @. exp(1im*α*x+1im*β*y)  # incident planewave
-
-θᵗ = -π/8    # transmitted field angle
-d  = cos(θᵗ)-cos(θ)
-L = 2*(2*π)/(k*abs(d))  # Unit cell width
-M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x))
-N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x))
-
-nvec = 0:101
-dx = L/length(nvec)
-xvec = [n*dx-L/2 for n in nvec]
-kₓ = 2*pi*fftfreq(length(nvec), 1/dx)
-β = @. sqrt(Complex(k^2 - kₓ^2))
-
 u_p = ComplexF64[n == modeN ? 1 : 0 for n in nvec]
-# u_p = fft(uInc(xvec, 0))/length(nvec)
+# u_p = fft(uInc(xvec, 0))/length(nvec) # too noisy to plot
 u_n = zeros(ComplexF64, length(nvec))
-M = Matrix(Diagonal(M₀(xvec)))
-N = Matrix(Diagonal(N₀(xvec)))
-
-A = [-Diagonal(β)-k*ifft(fft(M, 2), 1)    -Diagonal(β)-k*ifft(fft(M, 2), 1);
-    -Diagonal(β)-k*ifft(fft(N, 2), 1)     Diagonal(β)+k*ifft(fft(N, 2), 1)]
-B = [-Diagonal(β)+k*ifft(fft(M, 2), 1)    -Diagonal(β)+k*ifft(fft(M, 2), 1);
-    -Diagonal(β)+k*ifft(fft(N, 2), 1)     Diagonal(β)-k*ifft(fft(N, 2), 1)]
-S = A\B
-
 u_in = [u_p; u_n]
 u_out = S*u_in
 u_out_p = u_out[1:length(nvec)]
 u_out_n = u_out[length(nvec)+1:2*length(nvec)]
-
-E1(x,z) = sum([u_out_p[n+1]*exp(-1im*kₓ[n+1]*x)*exp(1im*β[n+1]*z) for n in nvec])+sum([u_p[n+1]*exp(-1im*kₓ[n+1]*x)*exp(-1im*β[n+1]*z) for n in nvec])
-E2(x,z) = sum([u_out_n[n+1]*exp(-1im*kₓ[n+1]*x)*exp(-1im*β[n+1]*z) for n in nvec])+sum([u_n[n+1]*exp(-1im*kₓ[n+1]*x)*exp(1im*β[n+1]*z) for n in nvec])
-
-xview = -L:0.02:L 
-zview = 0:0.01:L
-zview2 = -L:0.01:0
-Emat = zeros(Complex{Float64}, 0)
-Emat2 = zeros(Complex{Float64}, 0)
-for (z1, z2) in zip(zview, zview2)
-    append!(Emat, E1.(xview, z1))
-    append!(Emat2, E2.(xview, z2))
-end
-Emat = reshape(Emat,length(xview),:)
-Emat2 = reshape(Emat2,length(xview),:)
-	
-plt1 = heatmap(xview, zview2, transpose(real.(Emat2)))
-plt1 = heatmap!(xview, zview, transpose(real.(Emat)))
-plt2 = heatmap(xview, zview2, transpose(imag.(Emat2)))
-plt2 = heatmap!(xview, zview, transpose(imag.(Emat)))
-plt3 = heatmap(xview, zview2, transpose(abs2.(Emat2)))
-plt3 = heatmap!(xview, zview, transpose(abs2.(Emat)))
 end;
-
-# ╔═╡ c34b5661-e650-4fc1-9dcf-285c39ddb983
-plt1 # real
-# plt2 # imag
-# plt3 # abs2
 
 # ╔═╡ 4125d1a4-2a57-431a-b7ea-ab8f44994143
 begin
 ### DeltaRCWA solver
-struct ComplexExpSheet{T <: Real} <: RCWASheet{1}
+struct ComplexExpSheet{T} <: RCWASheet{T, 1}
     θ::T
     θᵗ::T
     k::T
@@ -285,17 +303,17 @@ end
 begin
 prob = DeltaRCWAProblem(sheet, modes, pol, u_p, u_n)
 sol = solve(prob)
-plot(sol)
+plot(sol;)
 end
 
 # ╔═╡ 7efe3220-c28b-4162-978a-7cf20673b1c4
 begin
 ### SheetStack demonstration
-struct TrivialSheet <: RCWASheet{1} end
+struct TrivialSheet{T} <: RCWASheet{T, 1} end
 nsheets = 2 # >= 2
 gap(x) = 2L # return
 stack = SheetStack(
-	Tuple(TrivialSheet() for i in 1:nsheets),
+	Tuple(TrivialSheet{Bool}() for i in 1:nsheets),
 	Tuple(gap(i) for i in 1:(nsheets-1)),
 )
 stackprob = DeltaRCWAProblem(stack, modes, pol, u_p, u_n)
@@ -304,8 +322,9 @@ plot(stacksol; combine=true)
 end
 
 # ╔═╡ b1d262df-07c2-4fef-9fa4-63d2f85d0d14
-### This is the result if I try to use my matrix-free approach
-plot(solve(prob; method=:matrixfree))
+### This is the result if I try to use my matrix-free approach (not implemented)
+# plot(solve(prob; method=:matrixfree))
+smatrixfree(sheet, modes, pol)(vcat(u_p, u_n))
 
 # ╔═╡ 313e53f3-8809-4fcf-830e-5b7fe53688a4
 md"
@@ -344,7 +363,7 @@ diffpn = u_p - u_n
 # -Vector(mortar([
 # 	diffpn + fft(Diagonal(σₑˣˣ(sheet, modes.x⃗))/2 * ifft((kz / ω) * diffpn)),
 # 	(kz / ω) * sumpn - fft(0.5Diagonal(σₘʸʸ(sheet, modes.x⃗)) * ifft(sumpn)) 
-])) 
+# ])) 
 end
 
 # ╔═╡ a729802a-727e-4462-b2fe-5e06ef7a179f
@@ -424,10 +443,12 @@ extrema(real.(S))
 # ╠═67fb8117-7d5b-4536-9e36-7dda36997dff
 # ╠═65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 # ╠═d915d60d-b159-400a-811c-af9b8828ec91
-# ╠═aa87c7bd-4d9e-49da-8cf0-4a0fb6081588
-# ╠═c34b5661-e650-4fc1-9dcf-285c39ddb983
-# ╟─db5067ad-60a3-4f75-a25e-441ccf61ea6f
+# ╠═e9534450-9a3d-4efa-a3e6-4c9aba4e1646
+# ╠═c2dcb3c6-6fa0-4edf-b9dc-a168c178214b
+# ╠═0a3d4a56-d783-4bd9-9392-17ade6242a97
+# ╠═483e04a7-ac35-44e1-88e7-6e18737d7110
 # ╠═2d1f452b-4d01-4fca-ae65-a864c4afa842
+# ╟─db5067ad-60a3-4f75-a25e-441ccf61ea6f
 # ╠═d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
 # ╠═4125d1a4-2a57-431a-b7ea-ab8f44994143
 # ╠═786a6947-7082-4902-a625-8be4bd3e30e7

@@ -1,10 +1,10 @@
 export HCellSheet
 
-struct HCellSheet <: RCWASheet{2}
-    height::Real
-    center_gap::Real
-    center_bridge::Real
-    leg_width::Real
-    ϵ::Number
-    μ::Number
+struct HCellSheet{T₁, T₂} <: RCWASheet{T₁, 2}
+    height::T₁
+    center_gap::T₁
+    center_bridge::T₁
+    leg_width::T₁
+    ϵ::T₂
+    μ::T₂
 end

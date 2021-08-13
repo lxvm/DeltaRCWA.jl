@@ -3,9 +3,9 @@ export UniformInterface
 """
 Stores data needed to model a scattering interface of 2 uniform media
 """
-struct UniformInterface <: RCWASheet{0}
-    M₁::UniformMedium
-    M₂::UniformMedium
+struct UniformInterface{T} <: RCWASheet{T, 0}
+    M₁::UniformMedium{T}
+    M₂::UniformMedium{T}
 end
 
 # passing through an interface like this one requires that the kx, ky

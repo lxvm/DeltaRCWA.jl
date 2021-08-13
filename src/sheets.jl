@@ -1,7 +1,7 @@
 # Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
 export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ
 
-function nonconducting(::RCWASheet{N}, x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}) where N
+function nonconducting(::RCWASheet, x⃗)
     zeros(ComplexF64, length.(x⃗))
 end
 

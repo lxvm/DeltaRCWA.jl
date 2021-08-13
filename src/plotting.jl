@@ -1,7 +1,7 @@
 export RCWAplot
 
 """
-    plot(::DeltaRCWASolution{1})
+    plot(::DeltaRCWASolution{T₁, T₂, 1})
 
 Visualize the RCWA solution in terms of the incident and scattered fields
 
@@ -12,7 +12,7 @@ Keyword arguments:
 """
 RCWAplot
 
-@recipe function f(sol::DeltaRCWASolution{1}; combine=false, part=real, method=:fft)
+@recipe function f(sol::DeltaRCWASolution{T, 1} where T; combine=false, part=real, method=:fft)
     # Nz = sol.modes.dims[1][1]
     # dz = sol.modes.dims[1][2] / Nz
     # z⃗ = range(0, step=dz, length=Nz)
@@ -35,11 +35,16 @@ RCWAplot
             end
         end
     else
-        N = length(x⃗)
-        AO₂ = N * part.(ifft(exp.( kz * transpose(im * z⃗₂)) .* sol.O₂, 1))
-        AI₂ = N * part.(ifft(exp.(-kz * transpose(im * z⃗₂)) .* sol.I₂, 1))
-        AI₁ = N * part.(ifft(exp.( kz * transpose(im * z⃗₁)) .* sol.I₁, 1))
-        AO₁ = N * part.(ifft(exp.(-kz * transpose(im * z⃗₁)) .* sol.O₁, 1))
+        # using bfft here because it matches the summation
+        # but in reality ifft (resp. bfft) are off by a factor of 
+        # sqrt(length(x⃗)) (resp. 1/sqrt(length(x⃗))) when it comes to preserving
+        # the norm/energy of the frequency domain representation.
+        # Note that fft doesn't preserve the norm (increases by sqrt(length(x⃗)))
+        # Ultimately this is just a choice of convention that can be modified.
+        AO₂ = part.(bfft(exp.( kz * transpose(im * z⃗₂)) .* sol.O₂, 1))
+        AI₂ = part.(bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol.I₂, 1))
+        AI₁ = part.(bfft(exp.( kz * transpose(im * z⃗₁)) .* sol.I₁, 1))
+        AO₁ = part.(bfft(exp.(-kz * transpose(im * z⃗₁)) .* sol.O₁, 1))
     end
     if combine
        @series begin
