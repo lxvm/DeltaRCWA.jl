@@ -32,5 +32,8 @@ function smatrix(inf::UniformInterface, k₁::PlanewaveModes, k₂::PlanewaveMod
     S₂₁ = Diagonal(@. 2 / (α₂₁ + β₂₁)) # T₁
     S₁₂ = Diagonal(@. 2 / (α₁₂ + β₁₂)) # T₂
     S₂₂ = Diagonal(@. (α₁₂ - β₁₂) / (α₁₂ + β₁₂)) # R₂
-    mortar(reshape([S₁₁, S₂₁, S₁₂, S₂₂], 2, 2))
+    mortar(
+        (S₁₁, S₁₂),
+        (S₂₁, S₂₂),
+    )
 end

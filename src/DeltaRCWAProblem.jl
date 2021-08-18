@@ -35,6 +35,15 @@ function DeltaRCWAProblem(sheet::RCWASheet, modes, pol, I₁, I₂)
     DeltaRCWAProblem(SheetStack((sheet, ), ()), modes, pol, I₁, I₂)
 end
 
+"""
+    DeltaRCWAProblem(structure, dims, ω, pol, I₁, I₂, medium=Vacuum())
+
+Constructor 
+"""
+function DeltaRCWAProblem(structure, dims, ω, pol, I₁, I₂, medium=Vacuum())
+    DeltaRCWAProblem(structure, PlanewaveModes(ω, dims, medium), pol, I₁, I₂)
+end
+
 struct DeltaRCWASolution{T, N}
     modes::PlanewaveModes{T, N}
     pol::AbstractPolarization

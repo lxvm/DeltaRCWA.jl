@@ -98,9 +98,9 @@ We will apply an additional transformation, that of changing the linear operator
 acting on the x axis into the Fourier basis.
 In total, the linear system can be rewritten as:
 $\begin{pmatrix}
--i\beta_1 + ik\tilde{M}  & -i\beta_2 + ik\tilde{M}
+-\beta_1 + k\tilde{M}  & -\beta_2 + k\tilde{M}
 \\
--i\beta_1 + ik\tilde{N} & i\beta_2 - ik\tilde{N}
+-\beta_1 + k\tilde{N} & \beta_2 - k\tilde{N}
 \end{pmatrix}
 \begin{pmatrix}
 \tilde{\boldsymbol c}_1^-
@@ -109,9 +109,9 @@ $\begin{pmatrix}
 \end{pmatrix}
 = 
 -\begin{pmatrix}
-i\beta_1 + ik\tilde{M} & i\beta_2 + ik\tilde{M}
+\beta_1 + k\tilde{M} & \beta_2 + k\tilde{M}
 \\
-i\beta_1 + ik\tilde{N} & -i\beta_2 - ik\tilde{N}
+\beta_1 + k\tilde{N} & -\beta_2 - k\tilde{N}
 \end{pmatrix}
 \begin{pmatrix}
 \tilde{\boldsymbol c}_1^+
@@ -120,7 +120,7 @@ i\beta_1 + ik\tilde{N} & -i\beta_2 - ik\tilde{N}
 \end{pmatrix}$
 
 The tensors with a tilde are in the Fourier basis and are obtained from
-`M̃ M \wideutilde = ifft(fft(M, 2), 1)` for matrices.
+`M̃ = ifft(fft(M, 2), 1)` for matrices.
 Note that the second axis are the rows and the first are the columns.
 (Hence array indexing is little-endian, since the column is rightmost)
 

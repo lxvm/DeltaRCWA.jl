@@ -1,3 +1,11 @@
+"""
+    DeltaRCWA
+
+An approximate RCWA-based solver for the scattering of electromagnetic fields in
+layered, periodic metasurfaces via a simplified model with infinitesimal sheets.
+
+Developed by Luke Qi, Lorenzo Van Muñoz at Steven G. Johnson's group in 2021
+"""
 module DeltaRCWA
 
 using LinearAlgebra: I, inv, Diagonal
@@ -6,8 +14,6 @@ using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
 using FFTW: fftfreq, fft, ifft, bfft, Frequencies
 using RecipesBase
 using KrylovKit: linsolve
-
-# Define the abstract types used in this module
 
 export RCWAScatterer, RCWASheet, RCWASlab
 
@@ -37,8 +43,6 @@ General methods to calculate the eigenmodes of the wave equation in variable
 impedance slabs could be implemented to make this software a full RCWA solver.
 """
 abstract type RCWASlab{T, N} <: RCWAScatterer{T, N} end
-
-# include code
 
 include("UniformMedium.jl")
 include("polarizations.jl")

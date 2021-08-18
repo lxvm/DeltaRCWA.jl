@@ -3,6 +3,8 @@
 # how do you unambiguously iterate over the product space of modes?
 # just do it consistently with the users order, or use named tuples
 
+# Another idea: build a dictionary of planewavemode objects when solving problem
+
 export get_kz, PlanewaveModes, WeightedModes
 
 """

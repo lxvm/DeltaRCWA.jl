@@ -33,19 +33,21 @@ $$\epsilon \partial_t E_z = \partial_x H_y - \partial_y H_z$$
 "
 
 # ╔═╡ f44f8519-b794-4f49-a926-378a6c33fc3a
-# This is an attempt to vectorize the calculation, but the symbolic array variable
-# declarations cause Julia to crash
-
-# @variables H[1:3] E[1:3] r[0:3] # r[0] = t; r[1] = x; r[2] = y; r[3] = z
-# vcurl_eqns = [
-# 	Equation(
-# 		F[1] * Differential(r[0])(F[2][ε[1]]),
-# 		Differential(r[ε[2]])(F[3][ε[3]]) - Differential(r[ε[3]])(F[3][ε[2]])
-# 	)
-# 	for F in [(-μ, H, E),  (ϵ, E, H)]
-# 	for ε in [(1, 2, 3), (2, 3, 1), (3, 1, 2)]
-# ]
-# @variables K[1:3]
+# begin
+# 	# This is an attempt to vectorize the calculation, but the symbolic array variable
+# 	# declarations cause Julia to crash
+	
+# 	@variables H[1:3] E[1:3] r[0:3] # r[0] = t; r[1] = x; r[2] = y; r[3] = z
+# 	vcurl_eqns = [
+# 		Equation(
+# 			F[1] * Differential(r[0])(F[2][ε[1]]),
+# 			Differential(r[ε[2]])(F[3][ε[3]]) - Differential(r[ε[3]])(F[3][ε[2]])
+# 		)
+# 		for F in [(-μ, H, E),  (ϵ, E, H)]
+# 		for ε in [(1, 2, 3), (2, 3, 1), (3, 1, 2)]
+# 	]
+# 	@variables K[1:3]
+# end
 
 # ╔═╡ f5311f88-fc9b-4c65-bd7f-bc1da71f00de
 @variables x y z t

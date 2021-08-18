@@ -19,3 +19,11 @@ function smatrix(stack::SheetStack, modes, pol)
     end
     S
 end
+
+function smatrixfree(stack::SheetStack{T, N, L} where {T, N}, modes, pol) where L
+    if L == 0
+        return smatrixfree(stack.sheets[1], modes, pol)
+    else
+        throw(error("matrix-free star product not implemented"))
+    end
+end

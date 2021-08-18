@@ -17,7 +17,10 @@ using Revise
 using DeltaRCWA
 
 # ╔═╡ 2a30d4a7-ef57-478d-93ac-b5756b6f3909
-using LinearAlgebra: Diagonal, I
+using LinearAlgebra: Diagonal, I, norm
+
+# ╔═╡ 805f9d8b-ae21-4b27-9d6d-6a818b1fabc9
+using BlockArrays: BlockMatrix
 
 # ╔═╡ adbd86c3-f970-4681-bcde-ddda1050eefd
 using FFTW: fftfreq, fft, ifft
@@ -27,18 +30,6 @@ using BlockArrays: Block, mortar
 
 # ╔═╡ 65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 using Plots
-
-# ╔═╡ 23217149-a538-4d4f-aaf7-ceeb7926fc1d
-begin
-	using BlockArrays
-	MM = Matrix(Diagonal(rand(100)))
-	NN = 500Matrix(Diagonal(rand(100)))
-	PP = BlockMatrix(MM, [50, 50], [50, 50])
-	QQ = BlockMatrix(NN, [50, 50], [50, 50])
-	XX = Matrix(PP)
-	YY = Matrix(QQ)
-	(MM \ NN)  ≈ (PP \ QQ) ≈ (XX \ YY)
-end
 
 # ╔═╡ 93f34ece-0216-4722-9bdc-70ee684d9bd3
 md"
@@ -87,18 +78,13 @@ B = [-Diagonal(β)+k*ifft(fft(M, 2), 1)    -Diagonal(β)+k*ifft(fft(M, 2), 1);
 S = A\B
 end;
 
-# ╔═╡ c2dcb3c6-6fa0-4edf-b9dc-a168c178214b
-begin
-	### Luke's solver with one of the rows multiplied by the inverted resisitivity
-	AA = [-Diagonal(β)-k*ifft(fft(M, 2), 1)    -Diagonal(β)-k*ifft(fft(M, 2), 1);
-	    -k\ifft(fft(inv(N), 2), 1)*Diagonal(β)-I     k\ifft(fft(inv(N), 2), 1)*Diagonal(β)+I]
-	BB = [-Diagonal(β)+k*ifft(fft(M, 2), 1)    -Diagonal(β)+k*ifft(fft(M, 2), 1);
-	    -k\ifft(fft(inv(N), 2), 1)*Diagonal(β)+I     k\ifft(fft(inv(N), 2), 1)*Diagonal(β)-I]
-	SS = AA \ BB
-end;
+# ╔═╡ ad9136c8-ec61-4736-925a-b4a2165080c6
+# Is the scattering matrix unitary?
+norm(S'S-I)/norm(S'S)
 
-# ╔═╡ 0a3d4a56-d783-4bd9-9392-17ade6242a97
-S ≈ SS
+# ╔═╡ d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
+### choose which mode to scatter
+modeN = 0
 
 # ╔═╡ db5067ad-60a3-4f75-a25e-441ccf61ea6f
 md"
@@ -201,7 +187,7 @@ These methods return the value of that conductivity component at all points in t
 unit cell, whose coordinates are given by a product iterator over the argument `x⃗`.
 By default/fallback, these methods all call for a trivial scattering sheet
 ```julia
-function nonconducting(::RCWASheet{N}, x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}) where N
+function nonconducting(::RCWASheet, x⃗) where N
     zeros(Bool, length.(x⃗))
 end
 ```
@@ -233,20 +219,6 @@ See the examples below for usage.
 - Differentiability of solver
 "
 
-# ╔═╡ d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
-modeN = 0
-
-# ╔═╡ 483e04a7-ac35-44e1-88e7-6e18737d7110
-begin
-u_p = ComplexF64[n == modeN ? 1 : 0 for n in nvec]
-# u_p = fft(uInc(xvec, 0))/length(nvec) # too noisy to plot
-u_n = zeros(ComplexF64, length(nvec))
-u_in = [u_p; u_n]
-u_out = S*u_in
-u_out_p = u_out[1:length(nvec)]
-u_out_n = u_out[length(nvec)+1:2*length(nvec)]
-end;
-
 # ╔═╡ 4125d1a4-2a57-431a-b7ea-ab8f44994143
 begin
 ### DeltaRCWA solver
@@ -259,178 +231,93 @@ struct ComplexExpSheet{T} <: RCWASheet{T, 1}
 end
 
 ### Define how to convert between M/N and conductivity matrix conventions
-function DeltaRCWA.σₑˣˣ(sheet::ComplexExpSheet{T}, x⃗::Tuple{StepRangeLen}) where T <: Real
+function DeltaRCWA.σₑˣˣ(sheet::ComplexExpSheet, x⃗)
 	# 2 ./ N₀(x⃗...)
     2 ./ ComplexF64[e ≈ 0 ? 1e-14 : e for e in N₀(x⃗...)]
 end
 
-function DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet{T}, x⃗::Tuple{StepRangeLen}) where T <: Real
+function DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗)
     2M₀(x⃗...)
 end
 
 ω = k
 sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
-modes = PlanewaveModes(ω, ((length(nvec), sheet.L), ), Vacuum())
+dims = ((length(nvec), sheet.L), )
+modes = PlanewaveModes(ω, dims, Vacuum())
 pol = TM()
 end;
 
-# ╔═╡ 2d1f452b-4d01-4fca-ae65-a864c4afa842
-begin
-### Re-visualizing Luke's solution
-Luke_sol = DeltaRCWASolution(modes, pol, u_p, u_n, u_out_p, u_out_n)
-plot(Luke_sol; part=real, method=:fft, combine=false)
-end
-
 # ╔═╡ 786a6947-7082-4902-a625-8be4bd3e30e7
 begin
-	### Compare the conductivities
+	### Display the magnetic conductivity (M) / electric resistivity (N) along sheet
 	plot(xvec,  real.(M₀(modes.x⃗...)), label="Re(M₀)")
 	plot!(xvec, imag.(M₀(modes.x⃗...)), label="Im(M₀)", linestyle=:dash)
-	plot!(xvec, real.(σₘʸʸ(sheet, modes.x⃗)), label="Re(σₘʸʸ)")
-	plot!(xvec, imag.(σₘʸʸ(sheet, modes.x⃗)), label="Im(σₘʸʸ)", linestyle=:dash)
+	plot!(xvec, real.(N₀(modes.x⃗...)), label="Re(N₀)")
+	plot!(xvec, imag.(N₀(modes.x⃗...)), label="Im(N₀)", linestyle=:dash)
 end
 
-# ╔═╡ 3f69f8c5-4d79-47f4-973e-3286cc9b4f6a
+# ╔═╡ 483e04a7-ac35-44e1-88e7-6e18737d7110
 begin
-	### Compare the resitivities/conductivities
-	plot(xvec, real.(N₀(modes.x⃗...)), label="Re(N₀)")
-	plot!(xvec, imag.(N₀(modes.x⃗...)), label="Im(N₀)", linestyle=:dash)
-	plot!(xvec, real.(σₑˣˣ(sheet, modes.x⃗)), label="Re(σₑˣˣ)")
-	plot!(xvec, imag.(σₑˣˣ(sheet, modes.x⃗)), label="Im(σₑˣˣ)", ylims=(-5, 5), linestyle=:dash)
-end
+u_p = ComplexF64[n == modeN ? 1 : 0 for n in nvec]
+# u_p = fft(uInc(xvec, 0))/length(nvec) # too noisy to plot
+u_n = zeros(ComplexF64, length(nvec))
+u_in = [u_p; u_n]
+u_out = S*u_in
+u_out_p = u_out[1:length(nvec)]
+u_out_n = u_out[length(nvec)+1:2*length(nvec)]
+Luke_sol = DeltaRCWASolution(modes, pol, u_p, u_n, u_out_p, u_out_n)
+end;
+
+# ╔═╡ 2d1f452b-4d01-4fca-ae65-a864c4afa842
+plot(Luke_sol; part=real, method=:fft, combine=false)
+
+# ╔═╡ 0a3d4a56-d783-4bd9-9392-17ade6242a97
+### verify that the scattering matrices match
+S ≈ smatrix(sheet, modes, pol)
 
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
 begin
 prob = DeltaRCWAProblem(sheet, modes, pol, u_p, u_n)
-sol = solve(prob)
+sol = solve(prob, method=:matrixfree)
 plot(sol;)
 end
 
 # ╔═╡ 7efe3220-c28b-4162-978a-7cf20673b1c4
 begin
-### SheetStack demonstration
+### demonstrate SheetStack
 struct TrivialSheet{T} <: RCWASheet{T, 1} end
-nsheets = 2 # >= 2
-gap(x) = 2L # return
+nsheets = 2
+gap(x) = 2L
 stack = SheetStack(
 	Tuple(TrivialSheet{Bool}() for i in 1:nsheets),
 	Tuple(gap(i) for i in 1:(nsheets-1)),
 )
 stackprob = DeltaRCWAProblem(stack, modes, pol, u_p, u_n)
 stacksol = solve(stackprob)
-plot(stacksol; combine=true)
-end
-
-# ╔═╡ b1d262df-07c2-4fef-9fa4-63d2f85d0d14
-### This is the result if I try to use my matrix-free approach (not implemented)
-# plot(solve(prob; method=:matrixfree))
-smatrixfree(sheet, modes, pol)(vcat(u_p, u_n))
-
-# ╔═╡ 313e53f3-8809-4fcf-830e-5b7fe53688a4
-md"
-Here I need to debug the matrix free and dense approaches
-"
-
-# ╔═╡ 12d10569-a158-42f6-bc2c-8c73d2e0955f
-begin
-	### Reproducing the pieces of the dense scattering matrix
-	kz = Diagonal(β)
-	σ̃ˣˣ = ifft(fft(Matrix(Diagonal(reshape(σₑˣˣ(sheet, modes.x⃗), :))), 2), 1)
-	σ̃ʸʸ = ifft(fft(Matrix(Diagonal(reshape(σₘʸʸ(sheet, modes.x⃗), :))), 2), 1)
-	Lgstc = mortar(
-        (I - (σ̃ˣˣ/2) * (kz/ω),  -(I - (σ̃ˣˣ/2) * (kz/ω))),
-        ((kz/ω) - (σ̃ʸʸ/2),          (kz/ω) - (σ̃ʸʸ/2)),
-    )
-	Rgstc = mortar(
-        (-(I + (σ̃ˣˣ/2) * (kz/ω)),   I + (σ̃ˣˣ/2) * (kz/ω)),
-        ((kz/ω) + (σ̃ʸʸ/2),          (kz/ω) + (σ̃ʸʸ/2)),
-    )
 end;
 
-# ╔═╡ 1bfdd3f4-4f2e-4baa-8a64-be9f5aff17c4
-Vector(Lgstc * mortar([u_p, u_n]))
+# ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
+plot(stacksol; part=imag, combine=true)
 
-# ╔═╡ eaa51b30-b437-4fe7-9af7-38c6ce93e286
+# ╔═╡ 418a2244-63dd-4922-93e7-4e34c9cdb583
 begin
-	# A = [-Diagonal(β)-k*ifft(fft(M, 2), 1)    -Diagonal(β)-k*ifft(fft(M, 2), 1);
-	# -Diagonal(β)-k*ifft(fft(N, 2), 1)     Diagonal(β)+k*ifft(fft(N, 2), 1)]
-sumpn = u_p + u_n
-diffpn = u_p - u_n
--Vector(mortar([
-	diffpn + fft(Diagonal(σₑˣˣ(sheet, modes.x⃗))/2 * ifft((kz / ω) * diffpn)),
-	(kz / ω) * sumpn - fft(0.5Diagonal(σₘʸʸ(sheet, modes.x⃗)) * ifft(sumpn)) 
-])) 
-# -Vector(mortar([
-# 	diffpn + fft(Diagonal(σₑˣˣ(sheet, modes.x⃗))/2 * ifft((kz / ω) * diffpn)),
-# 	(kz / ω) * sumpn - fft(0.5Diagonal(σₘʸʸ(sheet, modes.x⃗)) * ifft(sumpn)) 
-# ])) 
+	### Demonstrate Fresnel scattering
+	water = UniformMedium(80.3, 1.0)
+	water_modes = PlanewaveModes(ω, dims, water)
+	intf = UniformInterface(Vacuum(Float64), water)
+	intf_S = smatrix(intf, modes, water_modes)
+end;
+
+# ╔═╡ 185390b7-2d55-4010-93eb-c9e33662435b
+begin
+	intf_out = intf_S * mortar([u_p, u_n])
+	int_O₁ = intf_out[1:length(nvec)]
+	int_O₂ = intf_out[(1+length(nvec)):end]
+	intf_sol = DeltaRCWASolution(modes, pol, u_p, u_n, int_O₁, int_O₂)
 end
 
-# ╔═╡ a729802a-727e-4462-b2fe-5e06ef7a179f
-heatmap(log.(abs2.(Matrix(Lgstc) \ Matrix(Rgstc))))
-
-# ╔═╡ 56b4ae13-2953-45b4-8787-7d41885b272d
-### WARNING: not all inversions are the same!
-Matrix(Lgstc) ≈ Lgstc
-
-# ╔═╡ 8d3f6e8d-4926-4ef4-9b59-3e5105ac8857
-Matrix(Rgstc) ≈ Rgstc
-
-# ╔═╡ 8c8ed19d-1c8a-40e5-98eb-a0b6293521a6
-(Matrix(Lgstc) \ Matrix(Rgstc)) ≈ (Lgstc \ Rgstc)
-
-# ╔═╡ d49ea767-cb4f-40d2-ac3b-970515a00cd2
-# heatmap(real.(Matrix(Lgstc) \ Matrix(Rgstc)))
-# heatmap(real.((Lgstc) \ (Rgstc)))
-heatmap(real.(S))
-
-# ╔═╡ 59e18456-2a1c-46a1-8706-6401349c2c9d
-@which Lgstc \ Rgstc
-
-# ╔═╡ 395942ff-9d28-4d3d-a5a1-ff0c6c6445de
-@which Matrix(Lgstc) \ Matrix(Rgstc)
-
-# ╔═╡ a260a293-bcb4-483c-ba20-2af3e3cbfa58
-begin
-	# plot(real.(sol.I₁))
-	# plot(real.(Luke_sol.I₁))
-	# plot(real.(sol.O₂))
-	# plot(real.(ifft(sol.O₂)))
-	# plot(real.(Luke_sol.O₂))
-	# plot(real.(ifft(Luke_sol.O₂)))
-	# plot(real.(Luke_sol.O₁))
-	# plot(real.(ifft(Luke_sol.O₁)))
-end
-
-# ╔═╡ 3eb5ee6e-8581-41d5-9b72-33d82bad4c5b
-# Check that the outputs and inputs match
-u_out_p ≈ sol.O₂
-
-# ╔═╡ fc55344b-f0ff-44da-812c-43255aa4e7fd
-u_out_n ≈ sol.O₁
-
-# ╔═╡ 51f5b8a1-f5ec-4b42-a2b3-c3bb9f33e063
-u_p ≈ sol.I₁
-
-# ╔═╡ 36afdf48-e275-451b-a095-f2e5e57e5167
-u_n ≈ sol.I₂
-
-# ╔═╡ a9b12d46-c30d-4fca-9ce5-d3dd7498cf5d
-# check that the S-matrix matches (with or without blockarray)
-S ≈ smatrix(sheet, modes, pol)
-
-# ╔═╡ ca68a6e9-6697-43c3-a51c-966c17b101cc
-# plot the spectrum of the matrix
-heatmap(real.(S))
-
-# ╔═╡ d676e456-9984-4d24-8c8f-fece0edb1ee8
-heatmap(real.(smatrix(sheet, modes, pol)))
-
-# ╔═╡ 813d4696-a5d3-4c71-959a-91610931e8ba
-extrema(real.(smatrix(sheet, modes, pol)))
-
-# ╔═╡ bd0658c1-8f10-44b7-8bf4-2f3ece2889c6
-extrema(real.(S))
+# ╔═╡ 38b5a713-b224-4d62-baf2-69a1ef93e0bc
+plot(intf_sol)
 
 # ╔═╡ Cell order:
 # ╠═93f34ece-0216-4722-9bdc-70ee684d9bd3
@@ -439,42 +326,23 @@ extrema(real.(S))
 # ╠═b4a594f1-a38c-4ede-9860-d4a5afae15c5
 # ╠═55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
 # ╠═2a30d4a7-ef57-478d-93ac-b5756b6f3909
+# ╠═805f9d8b-ae21-4b27-9d6d-6a818b1fabc9
 # ╠═adbd86c3-f970-4681-bcde-ddda1050eefd
 # ╠═67fb8117-7d5b-4536-9e36-7dda36997dff
 # ╠═65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 # ╠═d915d60d-b159-400a-811c-af9b8828ec91
 # ╠═e9534450-9a3d-4efa-a3e6-4c9aba4e1646
-# ╠═c2dcb3c6-6fa0-4edf-b9dc-a168c178214b
-# ╠═0a3d4a56-d783-4bd9-9392-17ade6242a97
+# ╠═786a6947-7082-4902-a625-8be4bd3e30e7
+# ╠═ad9136c8-ec61-4736-925a-b4a2165080c6
+# ╠═d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
 # ╠═483e04a7-ac35-44e1-88e7-6e18737d7110
 # ╠═2d1f452b-4d01-4fca-ae65-a864c4afa842
-# ╟─db5067ad-60a3-4f75-a25e-441ccf61ea6f
-# ╠═d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
+# ╠═db5067ad-60a3-4f75-a25e-441ccf61ea6f
 # ╠═4125d1a4-2a57-431a-b7ea-ab8f44994143
-# ╠═786a6947-7082-4902-a625-8be4bd3e30e7
-# ╠═3f69f8c5-4d79-47f4-973e-3286cc9b4f6a
+# ╠═0a3d4a56-d783-4bd9-9392-17ade6242a97
 # ╠═77400f50-4e25-4fe6-8a0a-16f6cf6cb150
 # ╠═7efe3220-c28b-4162-978a-7cf20673b1c4
-# ╠═b1d262df-07c2-4fef-9fa4-63d2f85d0d14
-# ╠═313e53f3-8809-4fcf-830e-5b7fe53688a4
-# ╠═12d10569-a158-42f6-bc2c-8c73d2e0955f
-# ╠═1bfdd3f4-4f2e-4baa-8a64-be9f5aff17c4
-# ╠═eaa51b30-b437-4fe7-9af7-38c6ce93e286
-# ╠═a729802a-727e-4462-b2fe-5e06ef7a179f
-# ╠═56b4ae13-2953-45b4-8787-7d41885b272d
-# ╠═8d3f6e8d-4926-4ef4-9b59-3e5105ac8857
-# ╠═8c8ed19d-1c8a-40e5-98eb-a0b6293521a6
-# ╠═d49ea767-cb4f-40d2-ac3b-970515a00cd2
-# ╠═59e18456-2a1c-46a1-8706-6401349c2c9d
-# ╠═395942ff-9d28-4d3d-a5a1-ff0c6c6445de
-# ╠═23217149-a538-4d4f-aaf7-ceeb7926fc1d
-# ╠═a260a293-bcb4-483c-ba20-2af3e3cbfa58
-# ╠═3eb5ee6e-8581-41d5-9b72-33d82bad4c5b
-# ╠═fc55344b-f0ff-44da-812c-43255aa4e7fd
-# ╠═51f5b8a1-f5ec-4b42-a2b3-c3bb9f33e063
-# ╠═36afdf48-e275-451b-a095-f2e5e57e5167
-# ╠═a9b12d46-c30d-4fca-9ce5-d3dd7498cf5d
-# ╠═ca68a6e9-6697-43c3-a51c-966c17b101cc
-# ╠═d676e456-9984-4d24-8c8f-fece0edb1ee8
-# ╠═813d4696-a5d3-4c71-959a-91610931e8ba
-# ╠═bd0658c1-8f10-44b7-8bf4-2f3ece2889c6
+# ╠═d8d2123c-92ce-422e-bb68-bb09e689d44c
+# ╠═418a2244-63dd-4922-93e7-4e34c9cdb583
+# ╠═185390b7-2d55-4010-93eb-c9e33662435b
+# ╠═38b5a713-b224-4d62-baf2-69a1ef93e0bc
