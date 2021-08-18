@@ -136,7 +136,7 @@ struct UniformMedium{T <: Number}
     μ::T
 end
 
-Vacuum() = UniformMedium(true, true)
+Vacuum(x=Bool) = UniformMedium(one(x), one(x))
 ```
 #### Polarization
 This isn't stored in `PlanewaveModes`, but it is necessary information for 2D
@@ -147,14 +147,15 @@ polarizations decouple. Tell the solver whether to solve `TE()` or `TM()` when
 Defining a distribution over the incident planewave modes allows for a solution of the
 scattering problem. Two distributions must be specified: one at each port of the device.
 ### Defining the scattering structure
-The abstract type `RCWAScatterer{N,M}` is the main respresentation of a unit cell 
+The abstract type `RCWAScatterer{T,N}` is the main respresentation of a unit cell 
 in a periodic scattering structure in `DeltaRCWA`.
-The parameters `N,M` are integers to specify that a structure has `N` periodic
-dimensions (thus is at least a `N+1`-dimensional photonic crystal, after adding the
-scattering axis) and that occupies `M` dimensions.
-The useful subtypes of this are `RCWASheet{N} <: RCWAScatterer{N,2}` and
-`RCWASlab{N} <: RCWAScatterer{N,3}`, which represent structures with surface
-impedances and volume impedances, respectively.
+The type parameter `T` parametrizes the fields/geometric parameters in the struct.
+`N` is an integer to specify that a structure has `N` periodic dimensions
+(thus is at least a `N+1`-dimensional photonic crystal, after adding the
+scattering axis) which is the dimensionality of the problem.
+The useful subtypes of this are `RCWASheet{T, N} <: RCWAScatterer{T, N}` and
+`RCWASlab{T, N} <: RCWAScatterer{T, N}`, which may be used for dispatch on
+structures with surface impedances and volume impedances, respectively.
 `DeltaRCWA` concerns itself only with the `RCWASheet` since any nontrivial `RCWASlab`
 would require a more computationally expensive solver for the eigenmodes of Maxwell's
 equations in that structure.
@@ -163,8 +164,8 @@ computationally expensive step, though `DeltaRCWA` could be extended to do it as
 by defining a method for `smatrix(::RCWASlab{N}, ::PlanewaveModes{N}, ...)`.
 #### Creating a `RCWASheet`
 To create a sheet as part of a 2D photonic crystal, create a struct that is a subtype
-of `RCWASheet{1}` and store all the geometric and material parameters you need in your
-struct to define the electric and magnetic conductivity matrices for it.
+of `RCWASheet{T,1}` and store all the geometric and material parameters you need in
+your struct to define the electric and magnetic conductivity matrices for it.
 #### Creating a `SheetStack`
 In order to put 2 or more sheets in a sequence, separated by a uniform medium
 (the one defined in `PlanewaveModes`) create an instance of a `SheetStack`.
@@ -187,9 +188,7 @@ These methods return the value of that conductivity component at all points in t
 unit cell, whose coordinates are given by a product iterator over the argument `x⃗`.
 By default/fallback, these methods all call for a trivial scattering sheet
 ```julia
-function nonconducting(::RCWASheet, x⃗) where N
-    zeros(Bool, length.(x⃗))
-end
+nonconducting(x⃗) = zeros(Bool, length.(x⃗))
 ```
 unless you define a method which dispatches on your type, i.e.:
 ```julia
@@ -207,7 +206,7 @@ object.
 ### Analysis
 The `DeltaRCWASolution` objects have special methods to analyze and visualize them.
 #### Plotting
-`plot(::DeltaRCWASolution{T, 1} where T)` should just work!
+`plot(::DeltaRCWASolution{T1, T2, 1} where {T1, T2})` should just work!
 See the examples below for usage.
 ### Project TODO
 - Implement a solver for `RCWASheet{2}`/3D photonic crystals 
@@ -319,8 +318,26 @@ end
 # ╔═╡ 38b5a713-b224-4d62-baf2-69a1ef93e0bc
 plot(intf_sol)
 
+# ╔═╡ 792091d0-bca3-4a0d-b6f1-e0b2ab44e712
+md"
+The GSTCs we use are published by Epstein (DOI: 10.1109/TAP.2014.2354419)
+
+These are based on ones published by Kuester (DOI: 10.1109/TAP.2003.817560), which
+make the following assumptions.
+'In this paper, we will derive what we believe to be the most flexible form of a
+generalized sheet transition condition (GSTC) applicable to metafilms located in a
+homogeneous medium. The case of a metafilm on a dielectric interface will be
+considered in a separate paper.'
+
+Namely, we shouldn't expect to recover Fresnel scattering by simply using the same
+GSTC with different impedance parameters for each film.
+Kuester published a follow-up article (DOI: 10.1109/APS.2010.5562250)
+with a first order correction to the previous one which should generalize to the
+case where the metafilm has different media on either side.
+"
+
 # ╔═╡ Cell order:
-# ╠═93f34ece-0216-4722-9bdc-70ee684d9bd3
+# ╟─93f34ece-0216-4722-9bdc-70ee684d9bd3
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
 # ╠═9c58eb1a-313f-4f89-9958-7f33c7a072d3
 # ╠═b4a594f1-a38c-4ede-9860-d4a5afae15c5
@@ -330,14 +347,14 @@ plot(intf_sol)
 # ╠═adbd86c3-f970-4681-bcde-ddda1050eefd
 # ╠═67fb8117-7d5b-4536-9e36-7dda36997dff
 # ╠═65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
-# ╠═d915d60d-b159-400a-811c-af9b8828ec91
+# ╟─d915d60d-b159-400a-811c-af9b8828ec91
 # ╠═e9534450-9a3d-4efa-a3e6-4c9aba4e1646
 # ╠═786a6947-7082-4902-a625-8be4bd3e30e7
 # ╠═ad9136c8-ec61-4736-925a-b4a2165080c6
 # ╠═d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
 # ╠═483e04a7-ac35-44e1-88e7-6e18737d7110
 # ╠═2d1f452b-4d01-4fca-ae65-a864c4afa842
-# ╠═db5067ad-60a3-4f75-a25e-441ccf61ea6f
+# ╟─db5067ad-60a3-4f75-a25e-441ccf61ea6f
 # ╠═4125d1a4-2a57-431a-b7ea-ab8f44994143
 # ╠═0a3d4a56-d783-4bd9-9392-17ade6242a97
 # ╠═77400f50-4e25-4fe6-8a0a-16f6cf6cb150
@@ -346,3 +363,4 @@ plot(intf_sol)
 # ╠═418a2244-63dd-4922-93e7-4e34c9cdb583
 # ╠═185390b7-2d55-4010-93eb-c9e33662435b
 # ╠═38b5a713-b224-4d62-baf2-69a1ef93e0bc
+# ╟─792091d0-bca3-4a0d-b6f1-e0b2ab44e712
