@@ -8,6 +8,9 @@
 
 `derivations.jl` uses `Symbolics.jl` to derive the scattering matrix from Generalized Sheet Transition Conditions.
 
+`inversion.jl` demonstrates use of iterative solvers, compares their accuracy
+at inverting blocks of a matrix, and benchmarks different methods.
+
 ## Setting up this environment
 
 TL;DR
