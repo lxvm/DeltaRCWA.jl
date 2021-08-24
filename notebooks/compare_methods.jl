@@ -19,6 +19,9 @@ using FFTW
 # ╔═╡ 189e4b15-a8bf-4b9b-8832-1e41be5ade12
 using LinearAlgebra
 
+# ╔═╡ e0b6e55a-d6f3-4125-9796-a8463c7e00cd
+using Plots
+
 # ╔═╡ 8f32367b-b19b-4c18-80ff-5edaabcfb0d9
 include("NystromMethodQP.jl");
 
@@ -162,25 +165,42 @@ uInc(x,y)= exp(im*α*x+im*β*y);  # incident planewave
 end
 
 # ╔═╡ fea6690d-7602-462b-85dd-4fd504918933
-# Defining susceptibilities
 begin
 θᵗ = -π/3;    # transmitted field angle
 
 d  = cos(θᵗ)-cos(θ); 
 
-# η(x) = -sin(θ).*(1+exp.(im*k*d*x));
-η(x) = 0#-sin(θ).*(1+exp.(im*k*d*x));
+# Defining susceptibilities
+η(x) = -sin(θ).*(1+exp.(im*k*d*x));
+# η(x) = 0#-sin(θ).*(1+exp.(im*k*d*x));
 
-# μ(x) = -sin(θ).*(1-exp.(im*k*d*x));
-μ(x) = 1000000000 #-sin(θ).*(1-exp.(im*k*d*x));
+μ(x) = 1e-8-sin(θ).*(1-exp.(im*k*d*x));
+# μ(x) = 1000000000 #-sin(θ).*(1-exp.(im*k*d*x));
 
 L = 2*(2*π)/(k*abs(d));  # Unit cell width
-end
+end;
+
+# ╔═╡ da3f4379-7b2d-4efc-a9b2-5dcccd4a7d40
+# Defining geometry
+begin
+# Vertices that define the curve Γ 
+ver = [  L/2   0;   #1 
+        -L/2   0]  #2 
+# In this case, Γ is just a line segment from (L/2,0) to (-L/2,0). 
+
+# This matrix defines the orientation of the curve
+        #starting node  #ending node  #domain on the right #domian on the left  
+info = [1               2             1                    0]
+
+# The parameter M defines the number of boundary points to used in the discretization of the BIE
+M  = Int(round(max(20,20/λ)))
+
+# Γ contains all the information of the discretized curve that is needed for the numerical solution of the problem
+Γ  = SkeletonCctor(ver,info,[M])
+end;
 
 # ╔═╡ 1710cfd1-89c3-4bf8-b825-e76e7c898d74
 begin
-using Plots
-
 xPlot = -L/2:0.001:L/2;
 
 paramPlot = plot(xPlot,real.(η.(xPlot)))
@@ -193,25 +213,6 @@ paramPlot = plot!(xPlot,imag.(μ.(xPlot)))
 
 plot(paramPlot,lw=3,linestyle=[:solid :dash :solid :dash],label = ["Re η" "Im η" "Re μ" "Im μ"],frame=:box)
 xlabel!("x");ylabel!("η, μ")
-end
-
-# ╔═╡ da3f4379-7b2d-4efc-a9b2-5dcccd4a7d40
-# Defining geometry
-begin
-# Vertices that define the curve Γ 
-ver = [  L/2   0;   #1 
-        -L/2   0];  #2 
-# In this case, Γ is just a line segment from (L/2,0) to (-L/2,0). 
-
-# This matrix defines the orientation of the curve
-        #starting node  #ending node  #domain on the right #domian on the left  
-info = [1               2             1                    0];
-
-# The parameter M defines the number of boundary points to used in the discretization of the BIE
-M  = Int(round(max(20,20/λ))); 
-
-# Γ contains all the information of the discretized curve that is needed for the numerical solution of the problem
-Γ  = SkeletonCctor(ver,info,[M]);
 end
 
 # ╔═╡ 17f4f76d-fadd-4f0b-84c0-8d5dd8582176
@@ -264,7 +265,16 @@ ver⁺ = [L 0;-L 0;-L 100;L 100];
 
 ver⁻ = [L 0;-L 0;-L -100;L -100]; 
 Ω⁻ =isin(x,y,ver⁻);
-end
+end;
+
+# ╔═╡ 1fd8b4a3-53ef-4752-b817-bda9978c8a8e
+plot(real.(ifft(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]))))
+
+# ╔═╡ 07309d10-0410-4ac1-afb1-f56e9ef2f49a
+Ω⁺.Nx
+
+# ╔═╡ c92af4c2-884d-48a6-a458-45b57e42e7a8
+Ω⁻.Nx
 
 # ╔═╡ 2af29afd-37ea-4abf-b0c4-737cfd96e101
 begin
@@ -273,7 +283,7 @@ U⁺   =  Ω⁺.In.*reshape(pot⁺.SL*φ⁺ + uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2
 
 pot⁻= potentialsSkeleton(Ω⁻.pts,Γ,k,L,α,NC) 
 U⁻  =  Ω⁻.In.*reshape(pot⁻.SL*φ⁻ + uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx);
-end
+end;
 
 # ╔═╡ a39dd1aa-868d-4819-877f-ccd4b856cb4c
 begin
@@ -291,6 +301,11 @@ end
 
 # ╔═╡ 66a8554e-1b71-4776-a903-c9ee54f1d64b
 heatmap(x,y,abs2.(U⁻),color=:RdBu,clim=(-1.0,1.0))
+
+# ╔═╡ 78e6c13a-ba9a-4b5f-8ae6-51ebeb7f098e
+md"
+## Comparison with DeltaRCWA
+"
 
 # ╔═╡ 6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 md"
@@ -346,6 +361,30 @@ u_out = S*u_in
 u_out_p = u_out[1:length(nvec)]
 u_out_n = u_out[length(nvec)+1:2*length(nvec)]
 end
+
+# ╔═╡ 07b0e662-b295-46ff-a744-13b5e6fef561
+begin
+### DeltaRCWA solver
+struct ComplexExpSheet{T} <: RCWASheet{T, 1}
+    θ::T
+    θᵗ::T
+    k::T
+    d::T
+    L::T
+end
+
+### Define how to convert between η/μ and conductivity matrix conventions
+DeltaRCWA.σₑˣˣ(::ComplexExpSheet, x⃗) = 2 ./ μ.(x⃗[1])
+DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗) = 2η.(x⃗[1])
+
+ω = k
+sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
+dims = ((length(nvec), sheet.L), )
+pol = TM()
+end;
+
+# ╔═╡ 382b1cb8-45ab-4098-b7c0-f7826eba592d
+prob = DeltaRCWAProblem(sheet, dims, ω, pol, zeros(length(xPlot)), ifft(uInc.(xPlot)))
 
 # ╔═╡ 5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
 begin
@@ -478,7 +517,8 @@ size(transpose(Emat_in))
 # ╠═898fa516-591d-4831-8c65-f0e758922d15
 # ╠═e8668469-d378-463e-a8be-324f2362d90b
 # ╠═189e4b15-a8bf-4b9b-8832-1e41be5ade12
-# ╠═22081b08-f086-4a64-b349-b6938c1c4da1
+# ╠═e0b6e55a-d6f3-4125-9796-a8463c7e00cd
+# ╟─22081b08-f086-4a64-b349-b6938c1c4da1
 # ╠═1ef4e805-3dd9-4f39-a697-ddc0b4f04ad8
 # ╠═8f32367b-b19b-4c18-80ff-5edaabcfb0d9
 # ╠═ad90ebc0-99f2-4636-bce8-12abf791a69a
@@ -493,11 +533,17 @@ size(transpose(Emat_in))
 # ╠═0fd9999a-e379-46a0-8403-0fbae721b19b
 # ╠═6fdbb254-c11b-4688-be59-6e909790d620
 # ╠═ec2d9dea-e4d7-4703-8422-f4d9c4aec3fd
+# ╠═1fd8b4a3-53ef-4752-b817-bda9978c8a8e
+# ╠═07309d10-0410-4ac1-afb1-f56e9ef2f49a
+# ╠═c92af4c2-884d-48a6-a458-45b57e42e7a8
 # ╠═2af29afd-37ea-4abf-b0c4-737cfd96e101
 # ╠═a39dd1aa-868d-4819-877f-ccd4b856cb4c
 # ╠═a022ef8b-03cc-42cc-ac9e-4da96e3edecb
 # ╠═66a8554e-1b71-4776-a903-c9ee54f1d64b
-# ╠═6045bf4a-e6ac-4411-bd0e-171ee51f3c97
+# ╟─78e6c13a-ba9a-4b5f-8ae6-51ebeb7f098e
+# ╠═07b0e662-b295-46ff-a744-13b5e6fef561
+# ╠═382b1cb8-45ab-4098-b7c0-f7826eba592d
+# ╟─6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 # ╠═a82986c7-007e-4b6c-9afa-530dc062c5ce
 # ╠═5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
 # ╠═ebef37ce-d77e-4fc0-84d2-d147c6f9a0b6

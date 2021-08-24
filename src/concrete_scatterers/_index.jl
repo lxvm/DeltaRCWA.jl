@@ -1,5 +1,0 @@
-include("UniformSlab.jl")
-include("UniformInterface.jl")
-include("SheetStack.jl")
-include("HCellSheet.jl")
-include("SlitSheet.jl")

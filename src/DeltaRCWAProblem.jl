@@ -65,17 +65,18 @@ struct DeltaRCWASolution{T, N}
     end
 end
 
-function solve(prob::DeltaRCWAProblem{T₁, T₂, N, L}; method=:dense)::DeltaRCWASolution{T₂, N} where {T₁, T₂, N, L}
-    if method == :dense
-        sol = smatrix(prob.structure, prob.modes, prob.pol) * mortar(reshape.([prob.I₁, prob.I₂], :))
-        O₁ = reshape(sol[Block(1)], size(prob.I₁))
-        O₂ = reshape(sol[Block(2)], size(prob.I₂))
-    elseif method == :matrixfree
-        sol = smatrixfree(prob.structure, prob.modes, prob.pol)(vcat(reshape.([prob.I₁, prob.I₂], :)...))
-        O₁ = reshape(sol[1:length(prob.I₁)], size(prob.I₁))
-        O₂ = reshape(sol[(length(prob.I₁)+1):sum(length.([prob.I₁, prob.I₂]))], size(prob.I₂))
-    else
-        return error("keyword argument `method` must be one of `:dense`, `:matrixfree`")
-    end
-    return DeltaRCWASolution(prob.modes, prob.pol, prob.I₁, prob.I₂, O₁, O₂)
+"""
+    solve(::DeltaRCWAProblem; method=smatrix)::DeltaRCWASolution
+
+Evaluates the solution to the problem, with the solver method to be selected by
+the user. `method`s currently implemented are `smatrix` for a dense solver and
+`smatrixBlockMap` and `smatrixLinearMap` for matrix free methods using
+`BlockMap`s and `LinearMap`s respectively.
+"""
+function solve(prob::DeltaRCWAProblem{T₁, T₂, N, L}; method=smatrix)::DeltaRCWASolution{T₂, N} where {T₁, T₂, N, L}
+    structure, modes, pol, I₁, I₂ = prob.structure, prob.modes, prob.pol, prob.I₁, prob.I₂
+    sol = method(structure, modes, pol) * vcat(reshape.([I₁, I₂], :)...)
+    O₁ = reshape(sol[1:length(I₁)], size(I₁))
+    O₂ = reshape(sol[(length(I₁)+1):sum(length.([I₁, I₂]))], size(I₂))
+    DeltaRCWASolution(modes, pol, I₁, I₂, O₁, O₂)
 end

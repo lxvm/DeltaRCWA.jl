@@ -16,6 +16,9 @@ using KrylovKit
 # ╔═╡ 7c81445c-a46b-4d38-82a9-54f83d9ef539
 using IterativeSolvers
 
+# ╔═╡ 38cfc033-dcbd-4e92-832e-5066e095087c
+using LinearMaps
+
 # ╔═╡ 71d5a8a5-d4d2-4261-b0fd-fa6a962a9315
 using Plots
 
@@ -250,9 +253,71 @@ We will now do a brief benchmark of the methods compared above
 # ╔═╡ 0e916044-6944-4e75-a944-a6669851ed21
 @benchmark gmres(A, s)
 
+# ╔═╡ c8de38f2-5dc4-4abd-a735-11df723e6b85
+L = LinearMap(x -> A₁₁ * x + A₁₂ * gmres(A₂₂, A₂₁ * x), n)
+
 # ╔═╡ 487efe4c-b847-4e62-a0b6-78c759b90bf4
-### inverting a single block of the matrix (10-20 times slower)
-@benchmark linsolve(x -> A₁₁ * x + A₁₂ * gmres(A₂₂, A₂₁ * x), s[1:n])
+### inverting a single block of the matrix (5-10 times slower)
+@benchmark gmres(L, s[1:n])
+
+# ╔═╡ f5a30faf-6cc6-4708-a48d-b3839f437d00
+md"
+## Implementing a star product
+
+We can implement a star product with these block operations.
+To do so we can use the [`LinearMaps.BlockMap`](
+https://jutho.github.io/LinearMaps.jl/stable/types/#BlockMap-and-BlockDiagonalMap)
+type.
+"
+
+# ╔═╡ c9f91c42-238c-4f03-8d7d-a837002357d8
+M = [
+	L 3L;
+	2L 4L
+]
+
+# ╔═╡ 5f84cc39-1e39-4c24-95c4-50899defd70d
+"""
+	has_regular_blocks(M::LinearMaps.BlockMap)::Bool
+
+Returns true if the blocks in the BlockMap are partitioned by a row partition and a
+column partition (i.e. all blocks in each column/row have the same width/height).
+"""
+function has_regular_blocks(M::LinearMaps.BlockMap)::Bool
+	Ncol = M.rows[1]
+	Nrow = length(M.rows)
+	all(Ncol == M.rows[i] for i in 1:Nrow) && all(M.colranges[i] == M.colranges[i+j*Ncol] for i in 1:Ncol, j in 0:(Nrow-1))
+end
+
+# ╔═╡ 56c8e6e0-d286-4210-a67e-3ddef8228dd1
+begin
+	nrow, ncol = 1, 3
+	has_regular_blocks(hvcat(Tuple(ncol for _ in 1:nrow), fill(L, nrow*ncol)...))
+end
+
+# ╔═╡ a2500f48-2406-47f1-adec-bd6e50f67955
+function ⋆(A::LinearMaps.BlockMap, B::LinearMaps.BlockMap)::LinearMaps.BlockMap
+	@assert (2, 2) == A.rows == B.rows "Both maps must be 2x2 block maps"
+	@assert all(has_regular_blocks.([A, B])) "Both maps must have regular block alignment"
+	A₁₁, A₁₂, A₂₁, A₂₂ = A.maps
+	B₁₁, B₁₂, B₂₁, B₂₂ = B.maps
+	invI_A₂₂B₁₁ = LinearMap(x -> gmres(I - A₂₂ * B₁₁, x), size(A₂₂, 1), size(B₁₁, 2))
+    invI_B₁₁A₂₂ = LinearMap(x -> gmres(I - B₁₁ * A₂₂, x), size(B₁₁, 1), size(A₂₂, 2))
+	[
+		A₁₁ + A₁₂ * invI_B₁₁A₂₂ * B₁₁ * A₂₁ 	A₁₂ * invI_B₁₁A₂₂ * B₁₂;
+	 	B₂₁ * invI_A₂₂B₁₁ * A₂₁ 				B₂₂ + B₂₁ * invI_A₂₂B₁₁ * A₂₂ * B₁₂
+	]
+end
+
+# ╔═╡ 1a23e5ce-c6e3-4658-83ad-9060ebe44230
+id = [
+	0I(n)	1I(n);
+	1I(n)	LinearMap(0I(n))
+]
+
+# ╔═╡ 774d6cbb-07ce-4a9c-bf82-b7fd475dcca6
+# verify the star identity
+M * ones(2n) ≈ (M ⋆ id) * ones(2n) ≈ (id ⋆ M) * ones(2n)
 
 # ╔═╡ d25871e5-5e97-4b56-9c1c-0eac45d778d2
 md"
@@ -293,6 +358,7 @@ BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 
 [compat]
@@ -300,6 +366,7 @@ BenchmarkTools = "~1.1.1"
 BlockArrays = "~0.15.3"
 IterativeSolvers = "~0.9.1"
 KrylovKit = "~0.5.3"
+LinearMaps = "~3.4.0"
 Plots = "~1.20.0"
 """
 
@@ -660,6 +727,12 @@ version = "2.34.0+7"
 [[LinearAlgebra]]
 deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[[LinearMaps]]
+deps = ["LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "0a7c8fb69162e88412540b6c7bb28691e219372d"
+uuid = "7a12625a-238d-50fd-b39a-03d52299707e"
+version = "3.4.0"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1126,6 +1199,7 @@ version = "0.9.1+5"
 # ╠═9643b8cc-2fc9-462f-9614-c92c71ee9c14
 # ╠═7a4eed4d-e1e1-4bba-aa96-ee2de4812352
 # ╠═7c81445c-a46b-4d38-82a9-54f83d9ef539
+# ╠═38cfc033-dcbd-4e92-832e-5066e095087c
 # ╠═71d5a8a5-d4d2-4261-b0fd-fa6a962a9315
 # ╟─ca594862-6328-4d68-a80f-dbd6a76742f1
 # ╟─e2772ee2-2b2a-4fba-8a2a-163a14e2e00f
@@ -1150,7 +1224,15 @@ version = "0.9.1+5"
 # ╠═69006ecc-d67c-4654-ab58-123e39f8d300
 # ╠═10919814-a0b6-423f-ab60-7baa8218f9f5
 # ╠═0e916044-6944-4e75-a944-a6669851ed21
+# ╠═c8de38f2-5dc4-4abd-a735-11df723e6b85
 # ╠═487efe4c-b847-4e62-a0b6-78c759b90bf4
+# ╟─f5a30faf-6cc6-4708-a48d-b3839f437d00
+# ╠═c9f91c42-238c-4f03-8d7d-a837002357d8
+# ╠═5f84cc39-1e39-4c24-95c4-50899defd70d
+# ╠═56c8e6e0-d286-4210-a67e-3ddef8228dd1
+# ╠═a2500f48-2406-47f1-adec-bd6e50f67955
+# ╠═1a23e5ce-c6e3-4658-83ad-9060ebe44230
+# ╠═774d6cbb-07ce-4a9c-bf82-b7fd475dcca6
 # ╟─d25871e5-5e97-4b56-9c1c-0eac45d778d2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

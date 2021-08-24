@@ -59,7 +59,7 @@ uInc(x,y)= @. exp(1im*α*x+1im*β*y)  # incident planewave
 d  = cos(θᵗ)-cos(θ)
 L = 2*(2*π)/(k*abs(d))  # Unit cell width
 M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x))
-N₀(x) = @. 1e-8-sin(θ)*(1-exp(1im*k*d*x))
+N₀(x) = @. 2-sin(θ)*(1-exp(1im*k*d*x))
 
 nvec = 0:99
 dx = L/length(nvec)
@@ -230,14 +230,8 @@ struct ComplexExpSheet{T} <: RCWASheet{T, 1}
 end
 
 ### Define how to convert between M/N and conductivity matrix conventions
-function DeltaRCWA.σₑˣˣ(sheet::ComplexExpSheet, x⃗)
-	# 2 ./ N₀(x⃗...)
-    2 ./ ComplexF64[e ≈ 0 ? 1e-14 : e for e in N₀(x⃗...)]
-end
-
-function DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗)
-    2M₀(x⃗...)
-end
+DeltaRCWA.σₑˣˣ(sheet::ComplexExpSheet, x⃗) = 2 ./ N₀(x⃗...)
+DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗) = 2M₀(x⃗...)
 
 ω = k
 sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
@@ -277,9 +271,15 @@ S ≈ smatrix(sheet, modes, pol)
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
 begin
 prob = DeltaRCWAProblem(sheet, modes, pol, u_p, u_n)
-sol = solve(prob, method=:matrixfree)
+sol = solve(prob, method=smatrixBlockMap)
 plot(sol;)
 end
+
+# ╔═╡ 11ee6896-b206-4e9e-80f1-73ac47687010
+norm(u_out_p - sol.O₁)
+
+# ╔═╡ a88c632a-152e-4a22-bfd6-439d6c05a17e
+norm(u_out_n - sol.O₂)
 
 # ╔═╡ 7efe3220-c28b-4162-978a-7cf20673b1c4
 begin
@@ -288,15 +288,29 @@ struct TrivialSheet{T} <: RCWASheet{T, 1} end
 nsheets = 2
 gap(x) = 2L
 stack = SheetStack(
-	Tuple(TrivialSheet{Bool}() for i in 1:nsheets),
+	Tuple(sheet for i in 1:nsheets),
 	Tuple(gap(i) for i in 1:(nsheets-1)),
 )
 stackprob = DeltaRCWAProblem(stack, modes, pol, u_p, u_n)
-stacksol = solve(stackprob)
+stacksol = solve(stackprob, method=smatrix)
+stackBlocksol = solve(stackprob, method=smatrixBlockMap)
+stackLinearsol = solve(stackprob, method=smatrixLinearMap)
 end;
 
 # ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
 plot(stacksol; part=imag, combine=true)
+
+# ╔═╡ edd6e330-a361-4ac8-9367-fa7ec2230f40
+norm(stacksol.O₁ - stackBlocksol.O₁)
+
+# ╔═╡ 25de55dc-11da-4c63-a76e-baf9d845d368
+norm(stacksol.O₁ - stackLinearsol.O₁)
+
+# ╔═╡ c5a244aa-ff6b-4c03-b3b9-c299af6939f2
+norm(stacksol.O₂ - stackBlocksol.O₂)
+
+# ╔═╡ a0eb43e1-d8fd-4ac9-8469-17ede4a61b06
+norm(stacksol.O₂ - stackLinearsol.O₂)
 
 # ╔═╡ 418a2244-63dd-4922-93e7-4e34c9cdb583
 begin
@@ -317,6 +331,36 @@ end
 
 # ╔═╡ 38b5a713-b224-4d62-baf2-69a1ef93e0bc
 plot(intf_sol)
+
+# ╔═╡ c7f21884-7f54-4ec1-bfbe-3e3f9a0aecea
+heatmap(real.(intf_S))
+
+# ╔═╡ da0d5c28-211d-4e63-be42-dfae5186e9ee
+norm(intf_S'intf_S-I) / norm(intf_S'intf_S)
+
+# ╔═╡ b989ce7a-8b94-4982-bcdc-be0c298d77bd
+LL = [
+	I    -I;
+	Diagonal(modes.kz)    Diagonal(water_modes.kz) / water.ϵ
+];
+
+# ╔═╡ 1eee5956-32c1-40ce-bbd3-9fcd5bf10959
+RR = [
+	-I    I;
+	Diagonal(modes.kz)    Diagonal(water_modes.kz)/ water.ϵ
+];
+
+# ╔═╡ fd120148-443e-4d46-8fbf-bfaf19289f39
+myfres = inv(Matrix(LL)) * RR;
+
+# ╔═╡ ca2a3e4b-ca81-472c-ab4f-023a0bf5cbe7
+heatmap(real.(myfres)) 
+
+# ╔═╡ a17b20c2-6cbe-479e-82d0-80ba6caa787d
+norm(myfres'myfres-I)/norm(myfres'myfres)
+
+# ╔═╡ 832b0bed-d231-4ac1-9fb2-93cf14b881e6
+heatmap(abs2.(myfres'myfres - Diagonal(myfres'myfres)))
 
 # ╔═╡ 792091d0-bca3-4a0d-b6f1-e0b2ab44e712
 md"
@@ -354,13 +398,27 @@ case where the metafilm has different media on either side.
 # ╠═d0d638f3-dc93-48fa-b95d-9fc8b20e22f7
 # ╠═483e04a7-ac35-44e1-88e7-6e18737d7110
 # ╠═2d1f452b-4d01-4fca-ae65-a864c4afa842
+# ╠═11ee6896-b206-4e9e-80f1-73ac47687010
+# ╠═a88c632a-152e-4a22-bfd6-439d6c05a17e
 # ╟─db5067ad-60a3-4f75-a25e-441ccf61ea6f
 # ╠═4125d1a4-2a57-431a-b7ea-ab8f44994143
 # ╠═0a3d4a56-d783-4bd9-9392-17ade6242a97
 # ╠═77400f50-4e25-4fe6-8a0a-16f6cf6cb150
 # ╠═7efe3220-c28b-4162-978a-7cf20673b1c4
 # ╠═d8d2123c-92ce-422e-bb68-bb09e689d44c
+# ╠═edd6e330-a361-4ac8-9367-fa7ec2230f40
+# ╠═25de55dc-11da-4c63-a76e-baf9d845d368
+# ╠═c5a244aa-ff6b-4c03-b3b9-c299af6939f2
+# ╠═a0eb43e1-d8fd-4ac9-8469-17ede4a61b06
 # ╠═418a2244-63dd-4922-93e7-4e34c9cdb583
 # ╠═185390b7-2d55-4010-93eb-c9e33662435b
 # ╠═38b5a713-b224-4d62-baf2-69a1ef93e0bc
+# ╠═c7f21884-7f54-4ec1-bfbe-3e3f9a0aecea
+# ╠═da0d5c28-211d-4e63-be42-dfae5186e9ee
+# ╠═b989ce7a-8b94-4982-bcdc-be0c298d77bd
+# ╠═1eee5956-32c1-40ce-bbd3-9fcd5bf10959
+# ╠═fd120148-443e-4d46-8fbf-bfaf19289f39
+# ╠═ca2a3e4b-ca81-472c-ab4f-023a0bf5cbe7
+# ╠═a17b20c2-6cbe-479e-82d0-80ba6caa787d
+# ╠═832b0bed-d231-4ac1-9fb2-93cf14b881e6
 # ╟─792091d0-bca3-4a0d-b6f1-e0b2ab44e712
