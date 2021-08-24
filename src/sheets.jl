@@ -1,6 +1,5 @@
 # Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
-export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ
-
+export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
 nonconducting(x⃗) = zeros(Bool, length.(x⃗))
 
 σₑˣˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
@@ -11,6 +10,11 @@ nonconducting(x⃗) = zeros(Bool, length.(x⃗))
 σₘˣʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
 σₘʸˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
 σₘʸʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
+
+ρₑˣˣ(::RCWASheet, x⃗) = nonconducting(x⃗) .+ 0.5floatmax()
+ρₑˣʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
+ρₑʸˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
+ρₑʸʸ(::RCWASheet, x⃗) = nonconducting(x⃗) .+ 0.5floatmax()
 
 """
     smatrix(sheet::RCWASheet{1}, modes, ::UncoupledPolarization)
@@ -204,10 +208,10 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
         yy = σₘʸʸ(sheet, modes.x⃗),
     )
     K = (
-        xx = [k⃗[1]^2 for k⃗ in Iterators.product(modes.k⃗)],
-        xy = [k⃗[1] * k⃗[2] for k⃗ in Iterators.product(modes.k⃗)],
-        # yx = [k⃗[2] * k⃗[1] for k⃗ in Iterators.product(modes.k⃗)],
-        yy = [k⃗[2]^2 for k⃗ in Iterators.product(modes.k⃗)],
+        xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
+        xy = [k⃗[1] .* k⃗[2] for k⃗ in Iterators.product(modes.k⃗...)],
+        # yx = [k⃗[2] * k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
+        yy = [k⃗[2] .* k⃗[2] for k⃗ in Iterators.product(modes.k⃗...)],
     )
     ρₑ, σₘ, R, K, modes.kz, k⃗², ωμ
 end

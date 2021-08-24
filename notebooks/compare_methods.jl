@@ -10,6 +10,9 @@ begin
 	Pkg.activate(".")
 end
 
+# ╔═╡ f334af2a-897b-42bc-80c6-756e6e3519a8
+using Revise
+
 # ╔═╡ 898fa516-591d-4831-8c65-f0e758922d15
 using DeltaRCWA
 
@@ -28,141 +31,32 @@ include("NystromMethodQP.jl");
 # ╔═╡ a8253062-df3c-11eb-26e1-0dcff18bf886
 md"
 # Testing multilayer films
-"
 
-# ╔═╡ 22081b08-f086-4a64-b349-b6938c1c4da1
-md"
-## Build scattering matrix for delta layer
-
-The following explanation follow Luke's notes
-
-We need functions that get the M and N matrices for each polarization
-From Luke's notes:
-- $k = \sqrt{\epsilon_0 \mu_0}\omega, \eta = \sqrt{\mu_0 / \epsilon_0}$
-- For TE polarization $M = \frac{\eta}{2Z}, N = 2 Y \eta$
-- For TM polarization $M = \frac{1}{2Y\eta}, N = \frac{2 Z}{\eta}$
-Question! if $Y=Z^{-1}$ then is this a matrix inversion or element-wise reciprocation
-Answer: Matrix inversion (but which is element-wise reciprocation for diagonal matrices)
-
-In each case, if the field component of interest (The one which spans only one basis
-vector in each TE and TM polarization) is labelled by $\boldsymbol c$ then the
-sheet transition condition requires
-
-$[[\partial_z \boldsymbol c]] = -i k M \{\!\{\boldsymbol c\}\!\}$
-$\{\!\{\partial_z \boldsymbol c\}\!\} = -i k N [[\boldsymbol c]]$
-
-where $\{\!\{ \boldsymbol c \}\!\} = \boldsymbol c_1 + \boldsymbol c_2$
-and  $[[ \boldsymbol c ]] = \boldsymbol c_1 - \boldsymbol c_2$.
-Here the subscript denotes the port of the scatterer at which the field is evalutated.
-
-We may decompose the field into left and right-propagating components
-(alternatively incident and scattered components) by
-$\boldsymbol c_i = \boldsymbol c_i^+ + \boldsymbol c_i^-$.
-Considering these conventions, we can rewrite the boundary conditions as
-
-
-$\partial_z
-(\boldsymbol c_1^+ + \boldsymbol c_1^- - \boldsymbol c_2^+ - \boldsymbol c_2^-)
-= -i k M
-(\boldsymbol c_1^+ + \boldsymbol c_1^- + \boldsymbol c_2^+ + \boldsymbol c_2^-)$
-$\partial_z 
-(\boldsymbol c_1^+ + \boldsymbol c_1^- + \boldsymbol c_2^+ + \boldsymbol c_2^-)
-= -i k N
-(\boldsymbol c_1^+ + \boldsymbol c_1^- - \boldsymbol c_2^+ - \boldsymbol c_2^-)$
-
-which can be rearranged into this linear system
-
-$\begin{pmatrix}
-\partial_z + ikM  & -\partial_z + ikM
-\\
-\partial_z + ikN & \partial_z - ikN
-\end{pmatrix}
-\begin{pmatrix}
-\boldsymbol c_1^-
-\\
-\boldsymbol c_2^+
-\end{pmatrix}
-= 
--\begin{pmatrix}
-\partial_z + ikM  & -\partial_z + ikM
-\\
-\partial_z + ikN & \partial_z - ikN
-\end{pmatrix}
-\begin{pmatrix}
-\boldsymbol c_1^+
-\\
-\boldsymbol c_2^-
-\end{pmatrix}$
-
-We now want to apply the plane-wave ansatz for the propagation of the fields in the
-z-direction which is that $\boldsymbol c_j^\pm \propto e^{\pm i \beta_j z}$.
-Hence $\partial_z \boldsymbol c_j^\pm = \pm i \beta_j \boldsymbol c_j^\pm$.
-We will apply an additional transformation, that of changing the linear operators
-acting on the x axis into the Fourier basis.
-In total, the linear system can be rewritten as:
-$\begin{pmatrix}
--\beta_1 + k\tilde{M}  & -\beta_2 + k\tilde{M}
-\\
--\beta_1 + k\tilde{N} & \beta_2 - k\tilde{N}
-\end{pmatrix}
-\begin{pmatrix}
-\tilde{\boldsymbol c}_1^-
-\\
-\tilde{\boldsymbol c}_2^+
-\end{pmatrix}
-= 
--\begin{pmatrix}
-\beta_1 + k\tilde{M} & \beta_2 + k\tilde{M}
-\\
-\beta_1 + k\tilde{N} & -\beta_2 - k\tilde{N}
-\end{pmatrix}
-\begin{pmatrix}
-\tilde{\boldsymbol c}_1^+
-\\
-\tilde{\boldsymbol c}_2^-
-\end{pmatrix}$
-
-The tensors with a tilde are in the Fourier basis and are obtained from
-`M̃ = ifft(fft(M, 2), 1)` for matrices.
-Note that the second axis are the rows and the first are the columns.
-(Hence array indexing is little-endian, since the column is rightmost)
-
-Question! why is this it?
-Answer: This is applying the Fourier operator and its adjoint to the raised and
-lowered indices of the linear transformation M to get the transformed indices.
-So $\tilde{M} = \mathcal F(M) = F M F^*$, where $F$ is the DFT matrix.
-We can do this fast when doing a matrix-vector multiplication because the $F^*$
-can be applied to the vector ($\mathcal O(n \log(n))$), then multiply by the diagonal matrix $M$ ($\mathcal O(n)$) followed by a second DFT ($\mathcal O(n \log(n))$),
-which has better complexity than the $\mathcal O(n^2)$ operations we have now.
-
-The resulting scattering matrix is obtained from inverting the left matrix
-and moving it to the right side, thus expressing the inputs in terms of the outputs.
-
-Note that the $\beta_j$ are diagonal matrices with one entry per mode.
+For references on the test choice see
+- [Pérez-Arancibia et al., 2018, Sideways adiabaticity: beyond ray optics for slowly varying metasurfaces](https://doi.org/10.1364/OE.26.030202)
+- [Yu et al., 2011, Light Propagation with Phase Discontinuities: Generalized Laws of Reflection and Refraction](https://doi.org/10.1126/science.1210713)
 "
 
 # ╔═╡ 1ef4e805-3dd9-4f39-a697-ddc0b4f04ad8
 md"
-# Testing with Carlos' solver
-
-## Carlos' code
+## Carlos' solver
 "
 
 # ╔═╡ ad90ebc0-99f2-4636-bce8-12abf791a69a
 # Defining constants
 begin
-k = 10.0;   # wavenumber k²=ω²μ₀ϵ₀
+k = 10.0   # wavenumber k²=ω²μ₀ϵ₀
 
-λ = 2*pi/k; # wavelength 
+λ = 2*pi/k # wavelength 
 
-θ = -π/2.0; # incidence angle (measured with respect to the x axis)
+θ = -π/2.0 # incidence angle (measured with respect to the x axis)
 
-α = k*cos(θ);
+α = k*cos(θ)
 
-β = k*sin(θ);
+β = k*sin(θ)
 
-uInc(x,y)= exp(im*α*x+im*β*y);  # incident planewave
-end
+uInc(x,y)= exp(im*α*x+im*β*y)  # incident planewave
+end;
 
 # ╔═╡ fea6690d-7602-462b-85dd-4fd504918933
 begin
@@ -244,7 +138,7 @@ b⁻ =  f2.(x1) # boundary data for Ω⁻
 
 φ⁺ = 0.5*(ψ⁺+ψ⁻);
 φ⁻ = 0.5*(ψ⁺-ψ⁻);
-end
+end 
 
 # ╔═╡ 1aba587b-475a-49cb-aebe-06a7e1929c5a
 lims = [-L L -L L]
@@ -269,12 +163,6 @@ end;
 
 # ╔═╡ 1fd8b4a3-53ef-4752-b817-bda9978c8a8e
 plot(real.(ifft(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]))))
-
-# ╔═╡ 07309d10-0410-4ac1-afb1-f56e9ef2f49a
-Ω⁺.Nx
-
-# ╔═╡ c92af4c2-884d-48a6-a458-45b57e42e7a8
-Ω⁻.Nx
 
 # ╔═╡ 2af29afd-37ea-4abf-b0c4-737cfd96e101
 begin
@@ -328,10 +216,10 @@ uinc(x,y)= @. exp(1im*α*x+1im*β*y);  # incident planewave
 # θᵗ = -π/8;    # transmitted field angle
 # d  = cos(θᵗ)-cos(θ); 
 # L = 2*(2*π)/(k*abs(d));  # Unit cell width
-M₀(x) =  [1e-8 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
-# M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x));
-# N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x));
-N₀(x) =  [-10000000 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
+# M₀(x) =  [1e-8 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
+M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x));
+N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x));
+# N₀(x) =  [-10000000 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
 
 nvec = 0:99;
 dx = L/length(nvec)
@@ -375,7 +263,7 @@ end
 
 ### Define how to convert between η/μ and conductivity matrix conventions
 DeltaRCWA.σₑˣˣ(::ComplexExpSheet, x⃗) = 2 ./ μ.(x⃗[1])
-DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗) = 2η.(x⃗[1])
+DeltaRCWA.σₘʸʸ(::ComplexExpSheet, x⃗) = 2η.(x⃗[1])
 
 ω = k
 sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
@@ -384,19 +272,38 @@ pol = TM()
 end;
 
 # ╔═╡ 382b1cb8-45ab-4098-b7c0-f7826eba592d
-prob = DeltaRCWAProblem(sheet, dims, ω, pol, zeros(length(xPlot)), ifft(uInc.(xPlot)))
+prob = DeltaRCWAProblem(sheet, dims, ω, pol, zeros(length(xvec)), ifft(uInc.(xvec, 0)))
+
+# ╔═╡ 5379c325-69fa-4f3e-957d-644d40155997
+any(iszero.(prob.modes.kz))
+
+# ╔═╡ cd9bf171-5809-4f89-8fd6-0216e9bcec01
+sol = solve(prob)
+
+# ╔═╡ 3e3b9f60-6791-4922-8d3a-0dbe98437060
+plot(sol, method=:fft, combine=false)
+
+# ╔═╡ 7246eb23-1c2a-4bde-abd5-1b996977bb5d
+abs2.(sol.I₂)
+
+# ╔═╡ bf690896-e606-4e6e-a950-1ebc96a23ddb
+# plot(abs2.(sol.O₂))
+plot(real.(log.(sol.I₂)))
+
+# ╔═╡ 37cba2fa-e61e-4172-8840-28978bf9d16b
+argmax(imag.(prob.modes.kz))
 
 # ╔═╡ 5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
 begin
 LukexPlot = -L/2:0.001:L/2;
 
-LukeparamPlot = plot(LukexPlot,real.(M₀.(LukexPlot)))
+LukeparamPlot = plot(LukexPlot,real.(M₀(LukexPlot)))
 
-LukeparamPlot = plot!(LukexPlot,imag.(M₀.(LukexPlot))) 
+LukeparamPlot = plot!(LukexPlot,imag.(M₀(LukexPlot))) 
 
-LukeparamPlot = plot!(LukexPlot,real.(N₀.(LukexPlot))) 
+LukeparamPlot = plot!(LukexPlot,real.(N₀(LukexPlot))) 
 
-LukeparamPlot = plot!(LukexPlot,imag.(N₀.(LukexPlot))) 
+LukeparamPlot = plot!(LukexPlot,imag.(N₀(LukexPlot))) 
 
 plot(LukeparamPlot,lw=3,linestyle=[:solid :dash :solid :dash],label = ["Re M" "Im M" "Re N" "Im N"],frame=:box)
 xlabel!("x");ylabel!("M, N")
@@ -424,7 +331,7 @@ end
 Emat = Emat_in + Emat_out
 Emat = reshape(Emat,length(xview),:)
 Emat2 = reshape(Emat2,length(xview),:)
-end
+end;
 
 # ╔═╡ 68b8af24-098a-4a18-be7a-2245a787d325
 begin
@@ -514,12 +421,12 @@ size(transpose(Emat_in))
 # ╔═╡ Cell order:
 # ╠═a8253062-df3c-11eb-26e1-0dcff18bf886
 # ╠═5c283082-518b-45c6-907a-e80945b1a4e4
+# ╠═f334af2a-897b-42bc-80c6-756e6e3519a8
 # ╠═898fa516-591d-4831-8c65-f0e758922d15
 # ╠═e8668469-d378-463e-a8be-324f2362d90b
 # ╠═189e4b15-a8bf-4b9b-8832-1e41be5ade12
 # ╠═e0b6e55a-d6f3-4125-9796-a8463c7e00cd
-# ╟─22081b08-f086-4a64-b349-b6938c1c4da1
-# ╠═1ef4e805-3dd9-4f39-a697-ddc0b4f04ad8
+# ╟─1ef4e805-3dd9-4f39-a697-ddc0b4f04ad8
 # ╠═8f32367b-b19b-4c18-80ff-5edaabcfb0d9
 # ╠═ad90ebc0-99f2-4636-bce8-12abf791a69a
 # ╠═fea6690d-7602-462b-85dd-4fd504918933
@@ -534,15 +441,19 @@ size(transpose(Emat_in))
 # ╠═6fdbb254-c11b-4688-be59-6e909790d620
 # ╠═ec2d9dea-e4d7-4703-8422-f4d9c4aec3fd
 # ╠═1fd8b4a3-53ef-4752-b817-bda9978c8a8e
-# ╠═07309d10-0410-4ac1-afb1-f56e9ef2f49a
-# ╠═c92af4c2-884d-48a6-a458-45b57e42e7a8
 # ╠═2af29afd-37ea-4abf-b0c4-737cfd96e101
 # ╠═a39dd1aa-868d-4819-877f-ccd4b856cb4c
 # ╠═a022ef8b-03cc-42cc-ac9e-4da96e3edecb
+# ╠═5379c325-69fa-4f3e-957d-644d40155997
 # ╠═66a8554e-1b71-4776-a903-c9ee54f1d64b
 # ╟─78e6c13a-ba9a-4b5f-8ae6-51ebeb7f098e
 # ╠═07b0e662-b295-46ff-a744-13b5e6fef561
 # ╠═382b1cb8-45ab-4098-b7c0-f7826eba592d
+# ╠═cd9bf171-5809-4f89-8fd6-0216e9bcec01
+# ╠═3e3b9f60-6791-4922-8d3a-0dbe98437060
+# ╠═7246eb23-1c2a-4bde-abd5-1b996977bb5d
+# ╠═37cba2fa-e61e-4172-8840-28978bf9d16b
+# ╠═bf690896-e606-4e6e-a950-1ebc96a23ddb
 # ╟─6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 # ╠═a82986c7-007e-4b6c-9afa-530dc062c5ce
 # ╠═5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
