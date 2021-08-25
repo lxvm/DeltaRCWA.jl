@@ -12,7 +12,7 @@ Keyword arguments:
 """
 RCWAplot
 
-@recipe function f(sol::DeltaRCWASolution{T, 1} where T; combine=false, part=real, method=:fft)
+@recipe function f(sol::DeltaRCWASolution{T, 1} where T; combine=false, part=real, method=:fft, mask=nothing)
     # Nz = sol.modes.dims[1][1]
     # dz = sol.modes.dims[1][2] / Nz
     # z⃗ = range(0, step=dz, length=Nz)
@@ -20,6 +20,13 @@ RCWAplot
     z⃗₂ = x⃗
     z⃗₁ = -reverse(z⃗₂)
     kz = sol.modes.kz
+    if mask === nothing
+        mask = fill(true, size(sol.modes.kz))
+    end
+    O₂ = sol.O₂ .* mask
+    I₂ = sol.I₂ .* mask
+    I₁ = sol.I₁ .* mask
+    O₁ = sol.O₁ .* mask
     if method == :series
         AO₂ = zeros(length.((x⃗, z⃗₂)))
         AI₁ = zeros(length.((x⃗, z⃗₁)))
@@ -28,10 +35,10 @@ RCWAplot
         k⃗ = sol.modes.k⃗[1]
         for j in eachindex(x⃗)
             for i in eachindex(z⃗₂)
-                AO₂[j, i] = part.(sum(exp.((z⃗₂[i] * im) .*  kz .+ (x⃗[j] * im) .* k⃗) .* sol.O₂))
-                AI₂[j, i] = part.(sum(exp.((z⃗₂[i] * im) .* -kz .+ (x⃗[j] * im) .* k⃗) .* sol.I₂))
-                AI₁[j, i] = part.(sum(exp.((z⃗₁[i] * im) .*  kz .+ (x⃗[j] * im) .* k⃗) .* sol.I₁))
-                AO₁[j, i] = part.(sum(exp.((z⃗₁[i] * im) .* -kz .+ (x⃗[j] * im) .* k⃗) .* sol.O₁))
+                AO₂[j, i] = part.(sum(exp.((z⃗₂[i] * im) .*  kz .+ (x⃗[j] * im) .* k⃗) .* O₂))
+                AI₂[j, i] = part.(sum(exp.((z⃗₂[i] * im) .* -kz .+ (x⃗[j] * im) .* k⃗) .* I₂))
+                AI₁[j, i] = part.(sum(exp.((z⃗₁[i] * im) .*  kz .+ (x⃗[j] * im) .* k⃗) .* I₁))
+                AO₁[j, i] = part.(sum(exp.((z⃗₁[i] * im) .* -kz .+ (x⃗[j] * im) .* k⃗) .* O₁))
             end
         end
     else
@@ -41,10 +48,10 @@ RCWAplot
         # the norm/energy of the frequency domain representation.
         # Note that fft doesn't preserve the norm (increases by sqrt(length(x⃗)))
         # Ultimately this is just a choice of convention that can be modified.
-        AO₂ = part.(bfft(exp.( kz * transpose(im * z⃗₂)) .* sol.O₂, 1))
-        AI₂ = part.(bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol.I₂, 1))
-        AI₁ = part.(bfft(exp.( kz * transpose(im * z⃗₁)) .* sol.I₁, 1))
-        AO₁ = part.(bfft(exp.(-kz * transpose(im * z⃗₁)) .* sol.O₁, 1))
+        AO₂ = part.(bfft(exp.( kz * transpose(im * z⃗₂)) .* O₂, 1))
+        AI₂ = part.(bfft(exp.(-kz * transpose(im * z⃗₂)) .* I₂, 1))
+        AI₁ = part.(bfft(exp.( kz * transpose(im * z⃗₁)) .* I₁, 1))
+        AO₁ = part.(bfft(exp.(-kz * transpose(im * z⃗₁)) .* O₁, 1))
     end
     if combine
        @series begin

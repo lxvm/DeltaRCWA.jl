@@ -6,7 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ 5c283082-518b-45c6-907a-e80945b1a4e4
 begin
-	using Pkg
+	import Pkg
 	Pkg.activate(".")
 end
 
@@ -32,7 +32,7 @@ include("NystromMethodQP.jl");
 md"
 # Testing multilayer films
 
-For references on the test choice see
+For references on the metasurface impedance/conductivity parameters see
 - [Pérez-Arancibia et al., 2018, Sideways adiabaticity: beyond ray optics for slowly varying metasurfaces](https://doi.org/10.1364/OE.26.030202)
 - [Yu et al., 2011, Light Propagation with Phase Discontinuities: Generalized Laws of Reflection and Refraction](https://doi.org/10.1126/science.1210713)
 "
@@ -86,71 +86,58 @@ ver = [  L/2   0;   #1
         #starting node  #ending node  #domain on the right #domian on the left  
 info = [1               2             1                    0]
 
-# The parameter M defines the number of boundary points to used in the discretization of the BIE
-M  = Int(round(max(20,20/λ)))
+# The parameter P defines the number of boundary points to used in the discretization of the BIE
+P  = Int(round(max(20,20/λ)))
 
 # Γ contains all the information of the discretized curve that is needed for the numerical solution of the problem
-Γ  = SkeletonCctor(ver,info,[M])
+Γ  = SkeletonCctor(ver,info,[P])
 end;
 
 # ╔═╡ 1710cfd1-89c3-4bf8-b825-e76e7c898d74
 begin
-xPlot = -L/2:0.001:L/2;
-
-paramPlot = plot(xPlot,real.(η.(xPlot)))
-
-paramPlot = plot!(xPlot,imag.(η.(xPlot))) 
-
-paramPlot = plot!(xPlot,real.(μ.(xPlot))) 
-
-paramPlot = plot!(xPlot,imag.(μ.(xPlot))) 
-
-plot(paramPlot,lw=3,linestyle=[:solid :dash :solid :dash],label = ["Re η" "Im η" "Re μ" "Im μ"],frame=:box)
-xlabel!("x");ylabel!("η, μ")
+	# plot metasurface conductivity (η), impedance (μ) parameters
+	xPlot = -L/2:0.001:L/2;
+	paramPlot = plot(xPlot,real.(η.(xPlot)), ls=:solid, label="Re η")
+	paramPlot = plot!(xPlot,imag.(η.(xPlot)), ls=:dash, label="Re η") 
+	paramPlot = plot!(xPlot,real.(μ.(xPlot)), ls=:solid, label="Re μ") 
+	paramPlot = plot!(xPlot,imag.(μ.(xPlot)), ls=:dash, label="Re μ") 
+	plot(paramPlot,lw=3,frame=:box, xguide="x", yguide="η, μ")
 end
-
-# ╔═╡ 17f4f76d-fadd-4f0b-84c0-8d5dd8582176
-f1(x) = -2*im*k*η(x)*exp(im*α*x)
-
-# ╔═╡ 7d2b7703-8001-4308-9ca8-bf736d40099b
-f2(x) = -2*im*β*exp(im*α*x)
 
 # ╔═╡ b08df8b1-de6f-4b71-a650-48e483d91a3e
 # Solving the boundary integral equations
 begin
 method = "MK" # Selection of the Nystrom method to be used
 
-NC  = 5;      # Number of unit cells considered in the windowed sum (A = NC*L)
+NC  = 5      # Number of unit cells considered in the windowed sum (A = NC*L)
 
 mat = matricesSkeleton(1,Γ,k,L,α,NC,method) # Construction of the Nystrom matrices
     
-x1 = Γ.parts[1].x[:,1]; # x-coordinate of the discretization points on Γ
+x1 = Γ.parts[1].x[:,1] # x-coordinate of the discretization points on Γ
     
-Id = Matrix(I,Γ.Npts,Γ.Npts); # Indentity matrix
+Id = Matrix(I,Γ.Npts,Γ.Npts) # Indentity matrix
 
+f1(x) = -2*im*k*η(x)*exp(im*α*x)
 A⁺ = -0.5*Id+im*k*Diagonal(η.(x1))*mat.S  # System matrix for Ω⁺
 b⁺ = f1.(x1) # boundary data for Ω⁺
-ψ⁺ = A⁺\b⁺; 
+ψ⁺ = A⁺\b⁺
 
+f2(x) = -2*im*β*exp(im*α*x)
 A⁻ = -0.5*Id+im*k*Diagonal(μ.(x1))*mat.S # System matrix for Ω⁻
 b⁻ =  f2.(x1) # boundary data for Ω⁻
-ψ⁻ = A⁻\b⁻; 
+ψ⁻ = A⁻\b⁻
 
-φ⁺ = 0.5*(ψ⁺+ψ⁻);
-φ⁻ = 0.5*(ψ⁺-ψ⁻);
-end 
+φ⁺ = 0.5*(ψ⁺+ψ⁻)
+φ⁻ = 0.5*(ψ⁺-ψ⁻)
+end;
 
-# ╔═╡ 1aba587b-475a-49cb-aebe-06a7e1929c5a
-lims = [-L L -L L]
-
-# ╔═╡ ed7297fb-44ba-4efe-b72c-1abb80bb7484
-h=0.025
-
-# ╔═╡ 0fd9999a-e379-46a0-8403-0fbae721b19b
-x = lims[1]:h:lims[2]
-
-# ╔═╡ 6fdbb254-c11b-4688-be59-6e909790d620
-y = lims[3]:h:lims[4]
+# ╔═╡ c9f9390a-5d26-4791-a023-558e0a911d08
+begin
+	lims = [-L L -L L]
+	h=0.025
+	x = lims[1]:h:lims[2]
+	y = lims[3]:h:lims[4]
+end;
 
 # ╔═╡ ec2d9dea-e4d7-4703-8422-f4d9c4aec3fd
 begin
@@ -161,265 +148,270 @@ ver⁻ = [L 0;-L 0;-L -100;L -100];
 Ω⁻ =isin(x,y,ver⁻);
 end;
 
-# ╔═╡ 1fd8b4a3-53ef-4752-b817-bda9978c8a8e
-plot(real.(ifft(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]))))
-
-# ╔═╡ 2af29afd-37ea-4abf-b0c4-737cfd96e101
+# ╔═╡ f17855ee-a00d-4b39-bf39-4470a25bf32b
 begin
-pot⁺ = potentialsSkeleton(Ω⁺.pts,Γ,k,L,α,NC) 
-U⁺   =  Ω⁺.In.*reshape(pot⁺.SL*φ⁺ + uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]),Ω⁺.Ny,Ω⁺.Nx);
+	UInc = reshape(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]),Ω⁺.Ny,Ω⁺.Nx)
+	@assert UInc ≈ reshape(uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁺.Ny,Ω⁺.Nx)
+end
 
-pot⁻= potentialsSkeleton(Ω⁻.pts,Γ,k,L,α,NC) 
-U⁻  =  Ω⁻.In.*reshape(pot⁻.SL*φ⁻ + uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx);
+# ╔═╡ 93c2a72c-629f-4512-a048-8245ed2ebeb0
+# solve for upper potential (~30 seconds)
+pot⁺ = potentialsSkeleton(Ω⁺.pts,Γ,k,L,α,NC);
+
+# ╔═╡ 96f0ddeb-d722-4379-ba89-535f8ea15844
+begin
+	U⁺scat = reshape(pot⁺.SL*φ⁺,Ω⁺.Ny,Ω⁺.Nx)
+	U⁺   =  Ω⁺.In .* (U⁺scat .+ UInc)
+end;
+
+# ╔═╡ 46922475-76df-4734-8762-b72dca549b08
+# solve for lower potential (~30 seconds)
+pot⁻= potentialsSkeleton(Ω⁻.pts,Γ,k,L,α,NC);
+
+# ╔═╡ d218485c-875a-4d8c-b89b-c967c0f3f10f
+begin
+	U⁻scat = reshape(pot⁻.SL*φ⁻,Ω⁻.Ny,Ω⁻.Nx)
+	U⁻   =  Ω⁻.In .* (U⁻scat .+ UInc)
 end;
 
 # ╔═╡ a39dd1aa-868d-4819-877f-ccd4b856cb4c
 begin
-pltReal =  heatmap(x,y,real.(U⁺),color=:RdBu,clim=(-1.0,1.0))
-pltReal =  heatmap!(x,y,real.(U⁻),color=:RdBu,clim=(-1.0,1.0))
-pltReal = plot!(pltReal,legend=false,aspect_ratio=:equal,frame=:box)
+	pltReal =  heatmap(x,y,real.(U⁺),color=:RdBu,clim=(-1.0,1.0))
+	pltReal =  heatmap!(x,y,real.(U⁻),color=:RdBu,clim=(-1.0,1.0))
+	pltReal = plot!(pltReal,legend=false,aspect_ratio=:equal,frame=:box)
 end
 
 # ╔═╡ a022ef8b-03cc-42cc-ac9e-4da96e3edecb
 begin
-pltImag =  heatmap(x,y,imag.(U⁺),color=:RdBu,clim=(-1.0,1.0))
-pltImag =  heatmap!(x,y,imag.(U⁻),color=:RdBu,clim=(-1.0,1.0))
-pltImag = plot!(pltImag,legend=false,aspect_ratio=:equal,frame=:box)
+	pltImag =  heatmap(x,y,imag.(U⁺),color=:RdBu,clim=(-1.0,1.0))
+	pltImag =  heatmap!(x,y,imag.(U⁻),color=:RdBu,clim=(-1.0,1.0))
+	pltImag = plot!(pltImag,legend=false,aspect_ratio=:equal,frame=:box)
 end
 
 # ╔═╡ 66a8554e-1b71-4776-a903-c9ee54f1d64b
-heatmap(x,y,abs2.(U⁻),color=:RdBu,clim=(-1.0,1.0))
+	heatmap(x,y,abs2.(U⁻),color=:RdBu,clim=(-1.0,1.0))
 
 # ╔═╡ 78e6c13a-ba9a-4b5f-8ae6-51ebeb7f098e
 md"
-## Comparison with DeltaRCWA
+## DeltaRCWA solver
 "
 
 # ╔═╡ 6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 md"
-## Luke's program
-
-Extra test: add a trivial delta layer that should transmit everything and check that 
-it doesn't add a phase normalization
+## Luke's solver
 "
 
 # ╔═╡ a82986c7-007e-4b6c-9afa-530dc062c5ce
 begin
-# Some parameters repeated from Carlos
-# k = 10.0;
-# λ = 2*pi/k;
-# θ = -π/2.0; # incidence angle (measured with respect to the x axis)
-# α = k*cos(θ);
-# β = k*sin(θ);
-uinc(x,y)= @. exp(1im*α*x+1im*β*y);  # incident planewave
-
-# θᵗ = -π/8;    # transmitted field angle
-# d  = cos(θᵗ)-cos(θ); 
-# L = 2*(2*π)/(k*abs(d));  # Unit cell width
-# M₀(x) =  [1e-8 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
-M₀(x) = @. -sin(θ)*(1+exp(1im*k*d*x));
-N₀(x) = @. -sin(θ)*(1-exp(1im*k*d*x));
-# N₀(x) =  [-10000000 for i in x] #-sin(θ)*(1-exp(1im*k*d*x));
-
-nvec = 0:99;
+nvec = 0:99
 dx = L/length(nvec)
 xvec = [n*dx-L/2 for n in nvec]
 kₓ = 2*pi*fftfreq(length(nvec), 1/dx)
 βz = @. sqrt(Complex(k^2 - kₓ^2))
 
-u_p = fft(uinc(xvec, 0))/length(nvec)
+u_p = fft(uInc.(xvec, 0))/length(nvec)
 u_n = zeros(length(nvec))
-MM = Matrix(Diagonal(M₀(xvec)))
-# MM = Matrix(Diagonal(im * ones(size(xvec, 1)))
-	
-NN = Matrix(Diagonal(N₀(xvec)))
-# display(N)
+M = Matrix(Diagonal(η.(xvec)))
+N = Matrix(Diagonal(μ.(xvec)))
 
-
-A = [-Diagonal(βz)-k*ifft(fft(MM, 2), 1)    -Diagonal(βz)-k*ifft(fft(MM, 2), 1);
-    -Diagonal(βz)-k*ifft(fft(NN, 2), 1)     Diagonal(βz)+k*ifft(fft(NN, 2), 1)]
-B = [-Diagonal(βz)+k*ifft(fft(MM, 2), 1)    -Diagonal(βz)+k*ifft(fft(MM, 2), 1);
-    -Diagonal(βz)+k*ifft(fft(NN, 2), 1)     Diagonal(βz)-k*ifft(fft(NN, 2), 1)]
+A = [-Diagonal(βz)-k*ifft(fft(M, 2), 1)    -Diagonal(βz)-k*ifft(fft(M, 2), 1);
+    -Diagonal(βz)-k*ifft(fft(N, 2), 1)     Diagonal(βz)+k*ifft(fft(N, 2), 1)]
+B = [-Diagonal(βz)+k*ifft(fft(M, 2), 1)    -Diagonal(βz)+k*ifft(fft(M, 2), 1);
+    -Diagonal(βz)+k*ifft(fft(N, 2), 1)     Diagonal(βz)-k*ifft(fft(N, 2), 1)]
 S = A\B
-# display(S)
 
 u_in = [u_p; u_n]
-# smat_star(smat_star(smatrix(Air(L), kxy, ω₀), S), smatrix(Air(L), kxy, ω₀))
 u_out = S*u_in
 u_out_p = u_out[1:length(nvec)]
 u_out_n = u_out[length(nvec)+1:2*length(nvec)]
-end
+end;
 
 # ╔═╡ 07b0e662-b295-46ff-a744-13b5e6fef561
 begin
-### DeltaRCWA solver
-struct ComplexExpSheet{T} <: RCWASheet{T, 1}
-    θ::T
-    θᵗ::T
-    k::T
-    d::T
-    L::T
-end
+	struct ComplexExpSheet{T} <: RCWASheet{T, 1}
+		θ::T
+		θᵗ::T
+		k::T
+		d::T
+		L::T
+	end
 
-### Define how to convert between η/μ and conductivity matrix conventions
-DeltaRCWA.σₑˣˣ(::ComplexExpSheet, x⃗) = 2 ./ μ.(x⃗[1])
-DeltaRCWA.σₘʸʸ(::ComplexExpSheet, x⃗) = 2η.(x⃗[1])
+	### Define how to convert between η/μ and conductivity matrix conventions
+	DeltaRCWA.σₑˣˣ(::ComplexExpSheet, x⃗) = 2 ./ μ.(x⃗[1])
+	DeltaRCWA.σₘʸʸ(::ComplexExpSheet, x⃗) = 2η.(x⃗[1])
 
-ω = k
-sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
-dims = ((length(nvec), sheet.L), )
-pol = TM()
+	ω = k
+	sheet = ComplexExpSheet(θ, θᵗ, k, d, L)
+	dims = ((length(nvec), sheet.L), )
+	pol = TM()
+	prob = DeltaRCWAProblem(sheet, dims, ω, pol,
+		zeros(length(xvec)),
+		[n==1 ? 1 : 0 for n in 1:length(nvec)]
+		# ifft(uInc.(xvec, 0)), # too noisy to plot
+	)
+	sol = solve(prob)
 end;
 
-# ╔═╡ 382b1cb8-45ab-4098-b7c0-f7826eba592d
-prob = DeltaRCWAProblem(sheet, dims, ω, pol, zeros(length(xvec)), ifft(uInc.(xvec, 0)))
+# ╔═╡ 3e3b9f60-6791-4922-8d3a-0dbe98437060
+plot(sol, method=:fft, combine=false,
+	# mask=Bool[n==argmax(abs.(sol.O₂)) ? false : true for n in 1:length(nvec)]
+)
 
 # ╔═╡ 5379c325-69fa-4f3e-957d-644d40155997
 any(iszero.(prob.modes.kz))
 
-# ╔═╡ cd9bf171-5809-4f89-8fd6-0216e9bcec01
-sol = solve(prob)
+# ╔═╡ 926a554f-e587-40fa-99b5-fad6171fd551
+# this is the mode 
+prob.modes.k⃗[1][argmax(abs.(sol.O₂))], prob.modes.kz[argmax(abs.(sol.O₂))]
 
-# ╔═╡ 3e3b9f60-6791-4922-8d3a-0dbe98437060
-plot(sol, method=:fft, combine=false)
-
-# ╔═╡ 7246eb23-1c2a-4bde-abd5-1b996977bb5d
-abs2.(sol.I₂)
-
-# ╔═╡ bf690896-e606-4e6e-a950-1ebc96a23ddb
-# plot(abs2.(sol.O₂))
-plot(real.(log.(sol.I₂)))
-
-# ╔═╡ 37cba2fa-e61e-4172-8840-28978bf9d16b
-argmax(imag.(prob.modes.kz))
-
-# ╔═╡ 5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
+# ╔═╡ 63b2e16e-5614-472d-88d5-09ef17c6aeaa
 begin
-LukexPlot = -L/2:0.001:L/2;
-
-LukeparamPlot = plot(LukexPlot,real.(M₀(LukexPlot)))
-
-LukeparamPlot = plot!(LukexPlot,imag.(M₀(LukexPlot))) 
-
-LukeparamPlot = plot!(LukexPlot,real.(N₀(LukexPlot))) 
-
-LukeparamPlot = plot!(LukexPlot,imag.(N₀(LukexPlot))) 
-
-plot(LukeparamPlot,lw=3,linestyle=[:solid :dash :solid :dash],label = ["Re M" "Im M" "Re N" "Im N"],frame=:box)
-xlabel!("x");ylabel!("M, N")
+	# wrangle Luke's solution into DeltaRCWA for plotting
+	Lukemodes = PlanewaveModes(k, Vacuum(), ((length(nvec), L), ), prob.modes.x⃗, (kₓ, ), βz)
+	Lukesol = DeltaRCWA.DeltaRCWASolution(Lukemodes, pol, u_n, u_p, u_out_n, u_out_p)
+	plot(Lukesol)
 end
 
-# ╔═╡ ebef37ce-d77e-4fc0-84d2-d147c6f9a0b6
-begin
-E1_in(x,z) = sum([u_p[n+1]*exp(-1im*kₓ[n+1]*x)*exp(1im*βz[n+1]*z) for n in nvec])
-E1_out(x,z) = sum([u_out_p[n+1]*exp(-1im*kₓ[n+1]*x)*exp(1im*βz[n+1]*z) for n in nvec])
-E1(x, z) = E1_in(x, z) + E1_out(x, z)
-E2(x,z) = sum([u_out_n[n+1]*exp(-1im*kₓ[n+1]*x)*exp(-1im*βz[n+1]*z) for n in nvec])
-
-xview = range(-L, L, length=size(U⁺, 1)) #-L:0.02:L 
-zview = range(0, L, length=size(U⁻, 2) ÷ 2) #0:0.01:L
-zview2 = range(-L, 0, length=size(U⁺, 2) ÷ 2) #-L:0.01:0
-Emat_in = zeros(Complex{Float64}, 0)
-Emat_out = zeros(Complex{Float64}, 0)
-Emat = zeros(Complex{Float64}, 0)
-Emat2 = zeros(Complex{Float64}, 0)
-for (z1, z2) in zip(zview, zview2)
-    append!(Emat_in, E1_in.(xview, z1))
-    append!(Emat_out, E1_out.(xview, z1))
-    append!(Emat2, E2.(xview, z2))
-end
-Emat = Emat_in + Emat_out
-Emat = reshape(Emat,length(xview),:)
-Emat2 = reshape(Emat2,length(xview),:)
-end;
-
-# ╔═╡ 68b8af24-098a-4a18-be7a-2245a787d325
-begin
-plt1 = heatmap(xview, zview2, color=:RdBu, transpose(real.(Emat2)))
-plt1 = heatmap!(xview, zview, color=:RdBu, transpose(real.(Emat)))
-plot(plt1)
-end
-
-# ╔═╡ 161f163b-7b4b-443f-98ce-b8436f045d5b
-begin
-plt2 = heatmap(xview, zview2, color=:RdBu, transpose(imag.(Emat2)))
-plt2 = heatmap!(xview, zview, color=:RdBu, transpose(imag.(Emat)))
-plot(plt2)
-end
-
-# ╔═╡ a9b675ab-8346-4ed4-acb1-6fd294c887a4
-begin
-plt3 = heatmap(xview, zview2, color=:RdBu, transpose(abs2.(Emat2)))
-plt3 = heatmap!(xview, zview, color=:RdBu, transpose(abs2.(Emat)))
-plot(plt3)
-end
-
-# ╔═╡ 7616b15c-e4ba-4276-aaf1-6db59b3e971e
+# ╔═╡ d2350cc9-b4a1-4ab2-ab0a-39c0dad37681
 md"
 ## Comparisons
 
-First we should extract the difference in normalization between the two models.
-This can be done by comparing the amplitudes of the incident waves, since propagation
-in free space is linear.
-We can just take the maximum of the incident wave
+### Luke/DeltaRCWA
+Since these are basically the same solver, we can calculate the difference between
+these models in terms of the norm of the difference between the scattered amplitudes
 "
 
-# ╔═╡ 9d054936-196d-4019-87ea-4e1005776b4d
-Lukemax = maximum(real.(Emat_in))
+# ╔═╡ 1fbcf167-e742-48a7-a939-445ac0798550
+# error of scattered amplitudes in port 1
+norm(u_out_n - sol.O₁)
 
-# ╔═╡ ca0e851b-c86e-4bad-9475-2d5e2724a3dc
-Carlosmax = maximum(real.(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2])))
+# ╔═╡ 1b62b57e-d6c8-4fa8-8d4a-f7e62e5b795f
+# error of scattered amplitudes in port 2
+norm(u_out_p - sol.O₂)
 
-# ╔═╡ 843a7cf5-293e-471e-bfdc-a7b2c3e6a978
+# ╔═╡ 5d443572-9d5e-4495-867f-e908d9b56716
 md"
-Check for compatibility of element-wise field comparison.
-May need to interpolate between the grids
+### DeltaRCWA/Carlos
+
+To compare the frequency domain results of DeltaRCWA to the fields produced by
+Carlos' solver, we will have the scattered amplitudes onto the grid of Carlos'
+solver, possibly correcting for an overall complex normalization factor
+(amplitude and phase)
+
+We can find that normalization factor by setting the film to be trivial and comparing
+the incident and scattered wave
+
+I will compare 
+- incident fields in upper domain (these are just the incident wave)
+- incident fields in lower domain (these are both zero)
+- scattered fields in upper domain
+- scattered fields in lower domain
 "
 
-# ╔═╡ 7815c22d-2351-48f4-9ba5-57654bc802c3
-[size(e) for e in [U⁺, U⁻, Emat, Emat2, xview, zview, zview2]]
-
-# ╔═╡ 6b782b97-ef23-4831-9871-5b4c46d03e91
+# ╔═╡ 4a1aa64a-96da-4ecc-b98d-9623da487b9f
 begin
-fielderrorplot = heatmap(xview, zview2, color=:RdBu, abs.(transpose(Emat2)))
-# fielderrorplot = heatmap!(xview, zview, color=:RdBu, abs.(U⁺ - transpose(Emat_in)))
-plot(fielderrorplot)
-end
-# find a global phase difference
+	# find the subsets of the x, y points in each domain (Ω⁺, Ω⁻)
+	xisinΩ⁺ = [1.0 in Ω⁺.In[:, i] ? true : false for i in eachindex(x)]
+	yisinΩ⁺ = [1.0 in Ω⁺.In[i, :] ? true : false for i in eachindex(y)]
+	xinΩ⁺ = x[findfirst(xisinΩ⁺):findlast(xisinΩ⁺)]
+	yinΩ⁺ = y[findfirst(yisinΩ⁺):findlast(yisinΩ⁺)]
+	xisinΩ⁻ = [1.0 in Ω⁻.In[:, i] ? true : false for i in eachindex(x)]
+	yisinΩ⁻ = [1.0 in Ω⁻.In[i, :] ? true : false for i in eachindex(y)]
+	xinΩ⁻ = x[findfirst(xisinΩ⁻):findlast(xisinΩ⁻)]
+	yinΩ⁻ = y[findfirst(yisinΩ⁻):findlast(yisinΩ⁻)]
+end;
 
-# ╔═╡ 0c3fd6a9-d494-4d7c-bdb7-29823b83c798
+# ╔═╡ e085b47a-a8a3-4620-9fce-f031c837e33b
 begin
-	phaseplot = heatmap(xview, zview, angle.(transpose(Emat_in)))
-	plot(phaseplot)
-end
+	k⃗ = sol.modes.k⃗[1]
+	kz = prob.modes.kz
+	# Luke's equivalent
+	# k⃗ = kₓ
+	# kz = βz
+end;
 
-# ╔═╡ 0d471a35-7b73-4520-b899-324343b371cd
+# ╔═╡ fb36dabc-4aa0-40dd-ab3b-c7b97f34ab37
 begin
-	pphaseplot = heatmap(x, y, angle.(reshape(uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx)))
-	plot(pphaseplot)
-end
+	mask = fill(true, size(kz))
+	# mask = Bool[n==argmax(abs.(sol.O₂)) ? false : true for n in 1:length(nvec)]
+	O₂ = sol.O₂ .* mask
+    I₂ = sol.I₂ .* mask
+    I₁ = sol.I₁ .* mask
+    O₁ = sol.O₁ .* mask
+	# To compare with Luke, use these
+	# O₂ = Lukesol.O₂ .* mask
+	# I₂ = Lukesol.I₂ .* mask
+	# I₁ = Lukesol.I₁ .* mask
+	# O₁ = Lukesol.O₁ .* mask
+end;
 
-# ╔═╡ b27d8534-0173-4831-8f72-1c9b93eda72e
+# ╔═╡ 039bdb68-c4ce-4a42-ab4a-8f91c5ac29d6
 begin
-	ppphaseplot = heatmap(x, y, angle.(reshape(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]),Ω⁺.Ny,Ω⁺.Nx)))
-	plot(ppphaseplot)
-end
+	# DeltaRCWA: compute the fields in the upper domain
+	AO₂ = zeros(ComplexF64, length.((xinΩ⁺, yinΩ⁺)))
+	AI₂ = zeros(ComplexF64, length.((xinΩ⁺, yinΩ⁺)))
+	for j in eachindex(xinΩ⁺)
+		for i in eachindex(yinΩ⁺)
+			AO₂[j, i] = sum(exp.((yinΩ⁺[i] * im) .*  kz .+ (xinΩ⁺[j] * im) .* k⃗) .* O₂)
+			AI₂[j, i] = sum(exp.((yinΩ⁺[i] * im) .* -kz .+ (xinΩ⁺[j] * im) .* k⃗) .* I₂)
+		end
+	end
+	AO₂ = transpose(reverse(AO₂, dims=1))
+	AI₂ = transpose(reverse(AI₂, dims=1))
+end;
 
+# ╔═╡ 317c15e3-dc43-494a-8ad6-377b1d7a9ff8
+begin
+	# DeltaRCWA: compute the fields in the lower domain
+	AI₁ = zeros(ComplexF64, length.((xinΩ⁻, yinΩ⁻)))
+	AO₁ = zeros(ComplexF64, length.((xinΩ⁻, yinΩ⁻)))
+	for j in eachindex(xinΩ⁻)
+		for i in eachindex(yinΩ⁻)
+			AI₁[j, i] = sum(exp.((yinΩ⁻[i] * im) .*  kz .+ (xinΩ⁻[j] * im) .* k⃗) .* I₁)
+			AO₁[j, i] = sum(exp.((yinΩ⁻[i] * im) .* -kz .+ (xinΩ⁻[j] * im) .* k⃗) .* O₁)
+		end
+	end
+	AO₁ = transpose(reverse(AO₁, dims=1))
+	AI₁ = transpose(reverse(AI₁, dims=1))
+end;
 
-# ╔═╡ 15d11b59-0a4d-4f18-8704-3277142f8b59
-size(reshape(uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx))
-# Ω⁻.pts[:,1]
-# Ω⁻.pts[:,2]
+# ╔═╡ 85a067b0-24e1-47e6-87e7-6850f981cf04
+begin
+	# Carlos: extract the fields in the upper domain
+	Ω⁺mask = isfinite.(Ω⁺.In)
+	CI₂ = reshape(UInc[Ω⁺mask], length.((yinΩ⁺, xinΩ⁺)))
+	CO₂ = reshape(U⁺[Ω⁺mask] .- UInc[Ω⁺mask], length.((yinΩ⁺, xinΩ⁺)))
+end;
 
-# ╔═╡ 3199a72b-6c1d-4479-96f2-44ec877f8a4f
-# show the difference in phase
-size(reshape(uInc.(Ω⁻.pts[:,1],Ω⁻.pts[:,2]),Ω⁻.Ny,Ω⁻.Nx)[1, :])
+# ╔═╡ bdf6e2d5-30df-4bb5-a755-b71f29d99b41
+begin
+	# Carlos: extract the fields in the lower domain
+	Ω⁻mask = isfinite.(Ω⁻.In)
+	CI₁ = reshape(UInc[Ω⁻mask] .- UInc[Ω⁻mask], length.((yinΩ⁻, xinΩ⁻)))
+	CO₁ = reshape(U⁻[Ω⁻mask], length.((yinΩ⁻, xinΩ⁻)))
+end;
 
-# ╔═╡ 65008c5a-f0d1-471e-81d2-037e0c577ecf
-size(transpose(Emat_in))
+# ╔═╡ bbe3111b-18b3-4832-b636-621567a19632
+part = real;
+
+# ╔═╡ 980eed0d-3ba6-48a1-b31f-8a1446c96444
+# Incident, upper
+heatmap(part.(AI₁ .- CI₁), clim=(-1, 1))
+
+# ╔═╡ e19bf203-1eac-457f-bd61-1d9bfff9aa88
+# scattered, upper
+heatmap(part.(AO₂ .- CO₂), clim=(-1, 1))
+
+# ╔═╡ 6aa9e5de-9daf-4b9a-9078-b909a9fc5e03
+# scattered, lower
+heatmap(part.(AO₁ .- CO₁), clim=(-1, 1))
+
+# ╔═╡ 18ebd13e-88cd-453c-8690-1efc55b35900
+# Incident, lower
+heatmap(part.(AI₂ .- CI₂), clim=(-1, 1))
 
 # ╔═╡ Cell order:
-# ╠═a8253062-df3c-11eb-26e1-0dcff18bf886
+# ╟─a8253062-df3c-11eb-26e1-0dcff18bf886
 # ╠═5c283082-518b-45c6-907a-e80945b1a4e4
 # ╠═f334af2a-897b-42bc-80c6-756e6e3519a8
 # ╠═898fa516-591d-4831-8c65-f0e758922d15
@@ -433,43 +425,37 @@ size(transpose(Emat_in))
 # ╠═da3f4379-7b2d-4efc-a9b2-5dcccd4a7d40
 # ╠═1710cfd1-89c3-4bf8-b825-e76e7c898d74
 # ╠═b08df8b1-de6f-4b71-a650-48e483d91a3e
-# ╠═17f4f76d-fadd-4f0b-84c0-8d5dd8582176
-# ╠═7d2b7703-8001-4308-9ca8-bf736d40099b
-# ╠═1aba587b-475a-49cb-aebe-06a7e1929c5a
-# ╠═ed7297fb-44ba-4efe-b72c-1abb80bb7484
-# ╠═0fd9999a-e379-46a0-8403-0fbae721b19b
-# ╠═6fdbb254-c11b-4688-be59-6e909790d620
+# ╠═c9f9390a-5d26-4791-a023-558e0a911d08
 # ╠═ec2d9dea-e4d7-4703-8422-f4d9c4aec3fd
-# ╠═1fd8b4a3-53ef-4752-b817-bda9978c8a8e
-# ╠═2af29afd-37ea-4abf-b0c4-737cfd96e101
+# ╠═f17855ee-a00d-4b39-bf39-4470a25bf32b
+# ╠═93c2a72c-629f-4512-a048-8245ed2ebeb0
+# ╠═96f0ddeb-d722-4379-ba89-535f8ea15844
+# ╠═46922475-76df-4734-8762-b72dca549b08
+# ╠═d218485c-875a-4d8c-b89b-c967c0f3f10f
 # ╠═a39dd1aa-868d-4819-877f-ccd4b856cb4c
 # ╠═a022ef8b-03cc-42cc-ac9e-4da96e3edecb
-# ╠═5379c325-69fa-4f3e-957d-644d40155997
 # ╠═66a8554e-1b71-4776-a903-c9ee54f1d64b
 # ╟─78e6c13a-ba9a-4b5f-8ae6-51ebeb7f098e
 # ╠═07b0e662-b295-46ff-a744-13b5e6fef561
-# ╠═382b1cb8-45ab-4098-b7c0-f7826eba592d
-# ╠═cd9bf171-5809-4f89-8fd6-0216e9bcec01
 # ╠═3e3b9f60-6791-4922-8d3a-0dbe98437060
-# ╠═7246eb23-1c2a-4bde-abd5-1b996977bb5d
-# ╠═37cba2fa-e61e-4172-8840-28978bf9d16b
-# ╠═bf690896-e606-4e6e-a950-1ebc96a23ddb
+# ╠═5379c325-69fa-4f3e-957d-644d40155997
+# ╠═926a554f-e587-40fa-99b5-fad6171fd551
 # ╟─6045bf4a-e6ac-4411-bd0e-171ee51f3c97
 # ╠═a82986c7-007e-4b6c-9afa-530dc062c5ce
-# ╠═5eeb32ad-07e7-43c8-b78a-d23177eb5fc4
-# ╠═ebef37ce-d77e-4fc0-84d2-d147c6f9a0b6
-# ╠═68b8af24-098a-4a18-be7a-2245a787d325
-# ╠═161f163b-7b4b-443f-98ce-b8436f045d5b
-# ╠═a9b675ab-8346-4ed4-acb1-6fd294c887a4
-# ╠═7616b15c-e4ba-4276-aaf1-6db59b3e971e
-# ╠═9d054936-196d-4019-87ea-4e1005776b4d
-# ╠═ca0e851b-c86e-4bad-9475-2d5e2724a3dc
-# ╠═843a7cf5-293e-471e-bfdc-a7b2c3e6a978
-# ╠═7815c22d-2351-48f4-9ba5-57654bc802c3
-# ╠═6b782b97-ef23-4831-9871-5b4c46d03e91
-# ╠═0c3fd6a9-d494-4d7c-bdb7-29823b83c798
-# ╠═0d471a35-7b73-4520-b899-324343b371cd
-# ╠═b27d8534-0173-4831-8f72-1c9b93eda72e
-# ╠═15d11b59-0a4d-4f18-8704-3277142f8b59
-# ╠═3199a72b-6c1d-4479-96f2-44ec877f8a4f
-# ╠═65008c5a-f0d1-471e-81d2-037e0c577ecf
+# ╠═63b2e16e-5614-472d-88d5-09ef17c6aeaa
+# ╟─d2350cc9-b4a1-4ab2-ab0a-39c0dad37681
+# ╠═1fbcf167-e742-48a7-a939-445ac0798550
+# ╠═1b62b57e-d6c8-4fa8-8d4a-f7e62e5b795f
+# ╟─5d443572-9d5e-4495-867f-e908d9b56716
+# ╠═4a1aa64a-96da-4ecc-b98d-9623da487b9f
+# ╠═e085b47a-a8a3-4620-9fce-f031c837e33b
+# ╠═fb36dabc-4aa0-40dd-ab3b-c7b97f34ab37
+# ╠═039bdb68-c4ce-4a42-ab4a-8f91c5ac29d6
+# ╠═317c15e3-dc43-494a-8ad6-377b1d7a9ff8
+# ╠═85a067b0-24e1-47e6-87e7-6850f981cf04
+# ╠═bdf6e2d5-30df-4bb5-a755-b71f29d99b41
+# ╠═bbe3111b-18b3-4832-b636-621567a19632
+# ╠═980eed0d-3ba6-48a1-b31f-8a1446c96444
+# ╠═e19bf203-1eac-457f-bd61-1d9bfff9aa88
+# ╠═6aa9e5de-9daf-4b9a-9078-b909a9fc5e03
+# ╠═18ebd13e-88cd-453c-8690-1efc55b35900
