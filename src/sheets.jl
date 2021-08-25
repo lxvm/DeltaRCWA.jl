@@ -1,20 +1,23 @@
 # Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
 export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
-nonconducting(x⃗) = zeros(Bool, length.(x⃗))
 
-σₑˣˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₑˣʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₑʸˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₑʸʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₘˣˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₘˣʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₘʸˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
-σₘʸʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
+all_zero(x⃗) = zeros(Bool, length.(x⃗))
 
-ρₑˣˣ(::RCWASheet, x⃗) = nonconducting(x⃗) .+ 0.5floatmax()
-ρₑˣʸ(::RCWASheet, x⃗) = nonconducting(x⃗)
-ρₑʸˣ(::RCWASheet, x⃗) = nonconducting(x⃗)
-ρₑʸʸ(::RCWASheet, x⃗) = nonconducting(x⃗) .+ 0.5floatmax()
+# insulating
+σₑˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₑˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₑʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₑʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₘˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₘˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₘʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+σₘʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+
+# conducting
+ρₑˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+ρₑˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+ρₑʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
+ρₑʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
 
 """
     smatrix(sheet::RCWASheet{1}, modes, ::UncoupledPolarization)
@@ -55,7 +58,7 @@ transformed  rank-2N tensor reshaped to a matrix with flattened indices
 function diagFT(A::AbstractArray{<:Number, ndim}) where ndim
     n⃗ = size(A)
     n = prod(n⃗)
-    Ã = Matrix(reshape(Diagonal(reshape(A, n)), (n⃗..., n⃗...)))
+    Ã = Array(reshape(Diagonal(reshape(A, n)), (n⃗..., n⃗...)))
     Ã = fft(ifft(Ã, 1:ndim), (ndim+1):2ndim)
     reshape(Ã, (n, n))
 end
@@ -171,7 +174,7 @@ function _get_BlockMap_incident_side(_fft, _ifft, σˣˣ_term, σʸʸ_term, kz_t
 end
 
 """
-    smatrix(sheet::RCWASheet{2}, modes, ::UncoupledPolarization)
+    smatrix(sheet::RCWASheet{T, 2}, modes, ::CoupledPolarization)
 
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
@@ -216,29 +219,31 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
     ρₑ, σₘ, R, K, modes.kz, k⃗², ωμ
 end
 
-function _2Dsheetsmatrix(ρₑ, σₘ, R, K, kz, k⃗², ωμ)::BlockMatrix
-    K_term = mortar(map(x -> @. Diagonal(reshape(x, :)), [
-        (k⃗² .+ K.xx, K.xy),
-        (K.xy, k⃗² .+ K.yy),
-    ])...)
+function _2Dsheetsmatrix(ρₑ, σₘ, R, K, kz, k⃗², ωμ)
+    K_term = mortar(
+        Diagonal.(reshape.((k⃗² .+ K.xx, K.xy), :)),
+        Diagonal.(reshape.((K.xy, k⃗² .+ K.yy), :)),
+    )
     R_term = mortar(
         (R.xx, R.xy),
         (R.yx, R.yy),
     )
     # need to do Fourier transform of each block
-    ρ̃_term = mortar(map(x -> @. diagFT(x), [
-        (ρₑ.xx, ρₑ.xy),
-        (ρₑ.yx, ρₑ.yy),
-    ])...)
+    ρ̃_term = mortar(
+        diagFT.((ρₑ.xx, ρₑ.xy)),
+        diagFT.((ρₑ.yx, ρₑ.yy)),
+    )
     ρ̃_term = Matrix(K_term * transpose(R_term) * ρ̃_term * R_term)
-    σ̃_term = mortar(map(x -> @. diagFT(x), [
-        (σₘ.xx, σₘ.xy),
-        (σₘ.yx, σₘ.yy),
-    ])...)
+    σ̃_term = mortar(
+        diagFT.((σₘ.xx, σₘ.xy)),
+        diagFT.((σₘ.yx, σₘ.yy)),
+    )
     σ̃_term = Matrix(K_term * σ̃_term)
-        kz_term = ωμ * Diagonal(vcat(reshape.((kz, kz), :)...))
+    # return ρ̃_term, ρₑ
+    kz_term = ωμ * Diagonal(vcat(reshape.((kz, kz), :)...))
     A = _get_2Dsmatrix_scattered_side(ρ̃_term, σ̃_term, kz_term)
     B = _get_2Dsmatrix_incident_side(ρ̃_term, σ̃_term, kz_term)
+    # return A, B   
     A\B
 end
 

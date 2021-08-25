@@ -25,9 +25,16 @@ struct DeltaRCWAProblem{T₁, T₂, N, L}
         I₁::AbstractArray{<: Number, N},
         I₂::AbstractArray{<: Number, N},
     ) where {T₁, T₂, N, L}
-        @assert all(size(weights) == Tuple(i == length(modes.dims) ? N * modes.dims[i][1] : modes.dims[i][1] for i in eachindex(modes.dims)) for weights in (I₁, I₂))
+        check_mode_size(N, modes.dims, I₁, I₂)
+        # @assert all(size(weights) == Tuple(i == length(modes.dims) ? N * modes.dims[i][1] : modes.dims[i][1] for i in eachindex(modes.dims)) for weights in (I₁, I₂))
         enforce_N_pol(N, pol)
         new{T₁, T₂, N, L}(structure, modes, pol, convert.(Array{ComplexF64}, (I₁, I₂))...)
+    end
+end
+
+function check_mode_size(N, dims, weights...)
+    for w in weights
+        @assert size(w) == Tuple(i == length(dims) ? N * dims[i][1] : dims[i][1] for i in eachindex(dims)) ""
     end
 end
 
@@ -59,7 +66,8 @@ struct DeltaRCWASolution{T, N}
         O₁::AbstractArray{<: Number, N},
         O₂::AbstractArray{<: Number, N},
     ) where {T, N}
-        @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂, O₁, O₂))
+        check_mode_size(N, modes.dims, I₁, I₂, O₁, O₂)
+        # @assert all(size(weights) == Tuple(e[1] for e in modes.dims) for weights in (I₁, I₂, O₁, O₂))
         enforce_N_pol(N, pol)
         new{T, N}(modes, pol, convert.(Array{ComplexF64}, (I₁, I₂, O₁, O₂))...)
     end
