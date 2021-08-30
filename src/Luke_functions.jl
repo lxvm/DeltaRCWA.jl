@@ -20,7 +20,6 @@ function get_all_modes(M, N, L, λ)
     B = [Diagonal(β)-k*ifft(fft(M, 2), 1)    Diagonal(β)-k*ifft(fft(M, 2), 1);
         Diagonal(β)-k*ifft(fft(N, 2), 1)      -Diagonal(β)+k*ifft(fft(N, 2), 1)]
 
-    # TODO: replace inversion with iterative solver
     S = A\B
     return S, β
 end

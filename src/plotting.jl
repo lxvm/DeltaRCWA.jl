@@ -12,7 +12,7 @@ Keyword arguments:
 """
 RCWAplot
 
-@recipe function f(sol::DeltaRCWASolution{T, 1} where T; combine=false, part=real, method=:fft, mask=nothing)
+@recipe function f(sol::DeltaRCWASolution{T, 1} where T; combine=false, part=real, method=:fft)
     # Nz = sol.modes.dims[1][1]
     # dz = sol.modes.dims[1][2] / Nz
     # z⃗ = range(0, step=dz, length=Nz)
@@ -20,13 +20,7 @@ RCWAplot
     z⃗₂ = x⃗
     z⃗₁ = -reverse(z⃗₂)
     kz = sol.modes.kz
-    if mask === nothing
-        mask = fill(true, size(sol.modes.kz))
-    end
-    O₂ = sol.O₂ .* mask
-    I₂ = sol.I₂ .* mask
-    I₁ = sol.I₁ .* mask
-    O₁ = sol.O₁ .* mask
+    I₁, I₂, O₁, O₂ = sol.I₁, sol.I₂, sol.O₁, sol.O₂
     if method == :series
         AO₂ = zeros(length.((x⃗, z⃗₂)))
         AI₁ = zeros(length.((x⃗, z⃗₁)))

@@ -1,23 +1,50 @@
 # Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
-export σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
+export
+    ImpedanceStyle,
+    Impedanceρₑσₘ,
+    Impedanceσₑσₘ,
+    σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
 
-all_zero(x⃗) = zeros(Bool, length.(x⃗))
+abstract type ImpedanceStyle end
 
+"""
+    Impedanceρₑσₘ()
+
+Subtype of `ImpedanceStyle` to describe sheets that implement methods returning
+the components of ρₑ and of σₘ, which performs better when there is a perfect
+electric conductor and no electric insulator.
+"""
+struct Impedanceρₑσₘ <: ImpedanceStyle end
+
+"""
+    Impedanceσₑσₘ()
+
+Subtype of `ImpedanceStyle` to describe sheets that implement methods returning
+the components of σₑ and of σₘ, which performs better when there is a perfect
+electric insulator and no electric conductor.
+"""
+struct Impedanceσₑσₘ <: ImpedanceStyle end
+
+"""
+    ImpedanceStyle(A)
+    ImpedanceStyle(typeof(A))
+
+Based on IndexStyle in Base, provides an interface for user-defined sheets to
+choose between a formulation of the same problem in terms of their preferred
+conductivity parameters so long as they extend this method to choose a concrete
+impedance style for their type.
+"""
+ImpedanceStyle(::RCWASheet) = Impedanceρₑσₘ()
+
+# Set default admittance/impedance parameters
 # insulating
-σₑˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₑˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₑʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₑʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₘˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₘˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₘʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-σₘʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
-
+for σ in (:σₑˣˣ, :σₑˣʸ, :σₑʸˣ, :σₑʸʸ, :σₘˣˣ, :σₘˣʸ, :σₘʸˣ, :σₘʸʸ)
+    @eval $(σ)(::RCWASheet, x⃗) = zero(eltype(x⃗))
+end
 # conducting
-ρₑˣˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-ρₑˣʸ(::RCWASheet, x⃗) = all_zero(x⃗)
-ρₑʸˣ(::RCWASheet, x⃗) = all_zero(x⃗)
-ρₑʸʸ(::RCWASheet, x⃗) = all_zero(x⃗)
+for ρ in (:ρₑˣˣ, :ρₑˣʸ, :ρₑʸˣ, :ρₑʸʸ)
+    @eval $(ρ)(::RCWASheet, x⃗) = zero(eltype(x⃗))
+end
 
 """
     smatrix(sheet::RCWASheet{1}, modes, ::UncoupledPolarization)
@@ -27,26 +54,30 @@ polarization
 """
 function smatrix(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
     n = length(modes.kz)
-    BlockMatrix(
-        _1Dsheetsmatrix(_get_params_1Dsheetsmatrix(sheet, modes, pol)...),
-        [n, n], [n, n]
-    )
+    Z = ImpedanceStyle(sheet)
+    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
+    Z̃ˣˣ, Z̃ʸʸ = diagFT.((Zˣˣ, Zʸʸ))
+    A, B = get_1D_uncoupled_GSTC_matrices(Z, Z̃ˣˣ, Z̃ʸʸ, Diagonal(modes.kz), ωη)
+    BlockMatrix(A\B, [n, n], [n, n])
 end
 
-_get_params_1Dsheetsmatrix(sheet, modes, ::TE) = (
-    σₘˣˣ(sheet, modes.x⃗), σₑʸʸ(sheet, modes.x⃗), modes.kz, modes.ω * modes.M.μ,
-)
-_get_params_1Dsheetsmatrix(sheet, modes, ::TM) = (
-    σₑˣˣ(sheet, modes.x⃗), σₘʸʸ(sheet, modes.x⃗), modes.kz, modes.ω * modes.M.ϵ,
-)
-
-"construct the dense scattering matrix"
-function _1Dsheetsmatrix(σˣˣ, σʸʸ, kz, pol_ω)
-    kz_term = Diagonal(reshape(kz, :)) / pol_ω
-    σ̃ˣˣ_term, σ̃ʸʸ_term = diagFT.((0.5σˣˣ, 0.5σʸʸ))
-    A = _get_matrix_scattered_side(σ̃ˣˣ_term, σ̃ʸʸ_term, kz_term)
-    B = _get_matrix_incident_side(σ̃ˣˣ_term, σ̃ʸʸ_term, kz_term)
-    A\B
+@generated function get_1D_uncoupled_GSTC_params(Z::ImpedanceStyle, sheet, modes, pol)
+    if Z === Impedanceρₑσₘ
+        Zˣˣ, Zʸʸ = :ρ, :σ
+    else # Z === Impedanceσₑσₘ
+        Zˣˣ, Zʸʸ = :σ, :σ
+    end
+    if pol === TE
+        η, xx, yy = :μ, :ₘ, :ₑ
+    else # pol === TM
+        η, xx, yy = :ϵ, :ₑ, :ₘ
+    end
+    quote
+        Zx = $(Symbol(Zˣˣ, xx, :ˣˣ)).(Ref(sheet), Iterators.product(modes.x⃗...))
+        Zy = $(Symbol(Zʸʸ, yy, :ʸʸ)).(Ref(sheet), Iterators.product(modes.x⃗...))
+        ωη = modes.ω * modes.M.$(η)
+        Zx, Zy, ωη
+    end
 end
 
 """
@@ -63,18 +94,22 @@ function diagFT(A::AbstractArray{<:Number, ndim}) where ndim
     reshape(Ã, (n, n))
 end
 
-function _get_matrix_scattered_side(σ̃ˣˣ_term, σ̃ʸʸ_term, kz_term)
-    [
-        (I + σ̃ˣˣ_term * kz_term)      (-I - σ̃ˣˣ_term * kz_term);
-        (kz_term + σ̃ʸʸ_term)                (kz_term + σ̃ʸʸ_term)
-    ]
+function get_1D_uncoupled_GSTC_matrices(::Impedanceρₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    _get_1D_uncoupled_GSTC_matrices(I, Z̃ˣˣ, I, Z̃ʸʸ, kz, ωη)
 end
-
-function _get_matrix_incident_side(σ̃ˣˣ_term, σ̃ʸʸ_term, kz_term)
-    [
-        (-I + σ̃ˣˣ_term * kz_term)    (I - σ̃ˣˣ_term * kz_term);
-        (kz_term - σ̃ʸʸ_term)           (kz_term - σ̃ʸʸ_term)
+function get_1D_uncoupled_GSTC_matrices(::Impedanceσₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    _get_1D_uncoupled_GSTC_matrices(Z̃ˣˣ, I, I, Z̃ʸʸ, kz, ωη)
+end
+function _get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
+    A = [
+        (xxwithkz * kz + 2ωη * xxother)   (-xxwithkz * kz - 2ωη * xxother);
+        (yywithkz * kz + 0.5ωη * yyother) (yywithkz * kz + 0.5ωη * yyother)
     ]
+    B = [
+        (xxwithkz * kz - 2ωη * xxother)   (-xxwithkz * kz + 2ωη * xxother);
+        (yywithkz * kz - 0.5ωη * yyother) (yywithkz * kz - 0.5ωη * yyother)
+    ]
+    A, B
 end
 
 """
@@ -84,49 +119,49 @@ Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
 function smatrixLinearMap(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
-    _1DsheetsmatrixLinearMap(_get_params_1Dsheetsmatrix(sheet, modes, pol)...)
+    Z = ImpedanceStyle(sheet)
+    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
+    Z̃ˣˣ = ifft ∘ (x -> Diagonal(Zˣˣ) * x) ∘ fft
+    Z̃ʸʸ = ifft ∘ (x -> Diagonal(Zʸʸ) * x) ∘ fft
+    A, B = get_1D_uncoupled_GSTC_LinearMaps(Z, Z̃ˣˣ, Z̃ʸʸ, Diagonal(modes.kz), ωη)
+    LinearMap(x -> gmres(A, B(x)), 2length(modes.kz))
 end
 
-function _1DsheetsmatrixLinearMap(σˣˣ, σʸʸ, kz, pol_ω)
-    kz_term = Diagonal(reshape(kz, :)) / pol_ω
-    σˣˣ_term, σʸʸ_term = Diagonal.(reshape.((0.5σˣˣ, 0.5σʸʸ), :))
-    A = _get_LinearMap_scattered_side(σˣˣ_term, σʸʸ_term, kz_term)
-    B = _get_LinearMap_incident_side(σˣˣ_term, σʸʸ_term, kz_term)
-    LinearMap(x -> gmres(A, B(x)), 2size(kz_term, 1))
+function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceρₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    _get_1D_uncoupled_GSTC_LinearMaps(x -> x, Z̃ˣˣ, x -> x, Z̃ʸʸ, kz, ωη)
 end
-
-function _get_LinearMap_scattered_side(σˣˣ_term, σʸʸ_term, kz_term)
-    N = size(kz_term, 1)
-    LinearMap(
-        function (x::AbstractVector)
+function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceσₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    _get_1D_uncoupled_GSTC_LinearMaps(Z̃ˣˣ, x -> x, x -> x, Z̃ʸʸ, kz, ωη)
+end
+function _get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
+    N = size(kz, 1)
+    A = LinearMap(
+        function (x)
             I₁ = x[1:N]
             I₂ = x[(N+1):2N]
             sumI₁I₂ = I₁ + I₂
             diffI₁I₂ = I₁ - I₂
             vcat(
-                diffI₁I₂ + ifft(σˣˣ_term * fft(kz_term * diffI₁I₂)),
-                (kz_term * sumI₁I₂) + ifft(σʸʸ_term * fft(sumI₁I₂))
+                xxwithkz(kz * diffI₁I₂) + xxother(2ωη * diffI₁I₂),
+                yywithkz(kz * sumI₁I₂) + yyother(0.5ωη * sumI₁I₂)
             )
         end,
         2N
     )
-end
-
-function _get_LinearMap_incident_side(σˣˣ_term, σʸʸ_term, kz_term)
-    N = size(kz_term, 1)
-    LinearMap(
-        function (x::AbstractVector)
+    B = LinearMap(
+        function (x)
             I₁ = x[1:N]
             I₂ = x[(N+1):2N]
             sumI₁I₂ = I₁ + I₂
             diffI₁I₂ = I₁ - I₂
             vcat(
-                -diffI₁I₂ + ifft(σˣˣ_term * fft(kz_term * diffI₁I₂)),
-                (kz_term * sumI₁I₂) - ifft(σʸʸ_term * fft(sumI₁I₂))
+                xxwithkz(kz * diffI₁I₂) - xxother(2ωη * diffI₁I₂),
+                yywithkz(kz * sumI₁I₂) - yyother(0.5ωη * sumI₁I₂)
             )
         end,
         2N
     )
+    A, B
 end
 
 """
@@ -136,40 +171,23 @@ Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
 function smatrixBlockMap(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
-    _1DsheetsmatrixBlockMap(_get_params_1Dsheetsmatrix(sheet, modes, pol)...)
-end
-
-function _1DsheetsmatrixBlockMap(σˣˣ, σʸʸ, kz, pol_ω)::BlockMap
-    N = length(kz)
-    kz_term = LinearMap(Diagonal(reshape(kz, :)) / pol_ω)
-    σˣˣ_term, σʸʸ_term = LinearMap.(Diagonal.(reshape.((0.5σˣˣ, 0.5σʸʸ), :)))
-    _fft = LinearMap(x -> fft(x), N)
-    _ifft = LinearMap(x -> ifft(x), N)
-    A = _get_BlockMap_scattered_side(_fft, _ifft, σˣˣ_term, σʸʸ_term, kz_term)
-    # A = _get_LinearMap_scattered_side(σˣˣ_term, σʸʸ_term, kz_term)
-    B = _get_BlockMap_incident_side(_fft, _ifft, σˣˣ_term, σʸʸ_term, kz_term)
-    invA₁₁ = LinearMap(x -> gmres(A, vcat(x, zero(x)))[1:N], N)
-    invA₁₂ = LinearMap(x -> gmres(A, vcat(zero(x), x))[1:N], N)
-    invA₂₁ = LinearMap(x -> gmres(A, vcat(x, zero(x)))[(N+1):2N], N)
-    invA₂₂ = LinearMap(x -> gmres(A, vcat(zero(x), x))[(N+1):2N], N)
+    N = length(modes.kz)
+    Z = ImpedanceStyle(sheet)
+    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
+    _fft = LinearMap(fft, ifft, N)
+    Z̃ˣˣ = _fft' * LinearMap(Diagonal(Zˣˣ)) * _fft
+    Z̃ʸʸ = _fft' * LinearMap(Diagonal(Zʸʸ)) * _fft
+    kz = LinearMap(Diagonal(modes.kz))
+    A, B = get_1D_uncoupled_GSTC_matrices(Z, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    # Build the matrix inversion block-by-block
     B₁₁, B₁₂, B₂₁, B₂₂ = B.maps
+    invA_B₁₁ = LinearMap(x -> gmres(A, vcat(B₁₁ * x, B₂₁ * x))[1:N], N)
+    invA_B₁₂ = LinearMap(x -> gmres(A, vcat(B₁₂ * x, B₂₂ * x))[1:N], N)
+    invA_B₂₁ = LinearMap(x -> gmres(A, vcat(B₁₁ * x, B₂₁ * x))[(N+1):2N], N)
+    invA_B₂₂ = LinearMap(x -> gmres(A, vcat(B₁₂ * x, B₂₂ * x))[(N+1):2N], N)
     [
-        invA₁₁ * B₁₁ + invA₁₂ * B₂₁     invA₁₁ * B₁₂ + invA₁₂ * B₂₂;
-        invA₂₁ * B₁₁ + invA₂₂ * B₂₁     invA₂₁ * B₁₂ + invA₂₂ * B₂₂
-    ]
-end
-
-function _get_BlockMap_scattered_side(_fft, _ifft, σˣˣ_term, σʸʸ_term, kz_term)
-    [
-        I + _ifft * σˣˣ_term * _fft * kz_term     -I - _ifft * σˣˣ_term * _fft * kz_term;
-        kz_term + _ifft * σʸʸ_term * _fft         kz_term + _ifft * σʸʸ_term * _fft
-    ]
-end
-
-function _get_BlockMap_incident_side(_fft, _ifft, σˣˣ_term, σʸʸ_term, kz_term)
-    [
-        -I + _ifft * σˣˣ_term * _fft * kz_term    I + _ifft * σˣˣ_term * _fft * kz_term;
-        kz_term - _ifft * σʸʸ_term * _fft         kz_term - _ifft * σʸʸ_term * _fft
+        invA_B₁₁    invA_B₁₂;
+        invA_B₂₁    invA_B₂₂;
     ]
 end
 
