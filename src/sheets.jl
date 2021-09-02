@@ -26,8 +26,7 @@ electric insulator and no electric conductor.
 struct Impedanceσₑσₘ <: ImpedanceStyle end
 
 """
-    ImpedanceStyle(A)
-    ImpedanceStyle(typeof(A))
+    ImpedanceStyle(::RCWASheet)
 
 Based on IndexStyle in Base, provides an interface for user-defined sheets to
 choose between a formulation of the same problem in terms of their preferred
@@ -52,7 +51,7 @@ end
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function smatrix(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
+function smatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     n = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
@@ -118,7 +117,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function smatrixLinearMap(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
+function smatrixLinearMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
     Z̃ˣˣ = ifft ∘ (x -> Diagonal(Zˣˣ) * x) ∘ fft
@@ -170,7 +169,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function smatrixBlockMap(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPolarization)
+function smatrixBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     N = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
@@ -192,12 +191,12 @@ function smatrixBlockMap(sheet::RCWASheet{T, 1} where T, modes, pol::UncoupledPo
 end
 
 """
-    smatrix(sheet::RCWASheet{T, 2}, modes, ::CoupledPolarization)
+    smatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
 
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function smatrix(sheet::RCWASheet{T, 2} where T, modes, ::CoupledPolarization)
+function smatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
     n = length(modes.kz)
     BlockMatrix(
         _2Dsheetsmatrix(_get_params_2Dsheetsmatrix(sheet, modes)...),

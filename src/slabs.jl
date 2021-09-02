@@ -5,7 +5,7 @@ export UniformSlab
 
 Wrapper for a real number needed to propagate PlanewaveModes that distance
 """
-struct UniformSlab{T <: Real} <: RCWASlab{T, 0}
+struct UniformSlab{T<:Real} <: RCWASlab{0}
     depth::T
 end
 

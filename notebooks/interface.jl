@@ -22,14 +22,10 @@ using Plots
 # ╔═╡ 0a627414-a5af-4fc3-852f-c98105e4d860
 md"
 ## Using `DeltaRCWA`'s interface
-In this section we define and solve a scattering problem that identical to Luke's
-(except for the difference in convention regarding conductivities vs impedances).
-I will also give this material these properties for the TM polarization,
-since this would cause infinite electric conductivity but finite magnetic.
 These are the stages to using the solver, which needs this data
 ```julia
-struct DeltaRCWAProblem{T₁, T₂, N, L}
-    structure::SheetStack{T₁, N, L}
+struct DeltaRCWAProblem{N, T₁<:RCWAScatterer{N}, T₂}
+    structure::T₁
     modes::PlanewaveModes{T₂, N}
     pol::AbstractPolarization
     I₁::Array{ComplexF64, N}
@@ -38,7 +34,7 @@ end
 ```
 as explained and demonstrated below:
 ### Defining the scattering modes
-A struct called `PlanewaveModes{N}` is used to specify the discretization and
+A struct called `PlanewaveModes{T, N}` is used to specify the discretization and
 periodicities of space in the unit cell where `DeltaRCWA` solves for the fields.
 `N` refers to the number of dimensions along which the unit cell is periodic.
 Along these periodic dimensions, the solutions can be expanded in the Fourier basis
@@ -134,28 +130,31 @@ I₂ = zeros(Nmodes)
 # ╔═╡ 3e0209fe-f316-436d-b017-422844535579
 md"
 ### Defining the scattering structure
-The abstract type `RCWAScatterer{T, N}` is the main respresentation of a unit cell 
+The abstract type `RCWAScatterer{N}` is the main respresentation of a unit cell 
 in a periodic scattering structure in `DeltaRCWA`.
-The type parameter `T` parametrizes the fields/geometric parameters in the struct and
-`N` is an integer to specify that a scatterer has a unit cell with `N` periodic dimensions, which is the dimensionality of the problem.
-The useful subtypes of this are `RCWASheet{T, N} <: RCWAScatterer{T, N}` and
-`RCWASlab{T, N} <: RCWAScatterer{T, N}`, which are used for dispatch on
-scatterers with surface impedances and volume impedances, respectively.
-`DeltaRCWA` uses `RCWASheet`s since any nontrivial `RCWASlab`
-would require a more computationally expensive solver for the eigenmodes of Maxwell's
-equations in that structure, such as [S⁴](http://www.stanford.edu/group/fan/S4/).
+The type parameter `N` is an integer to specify that a scatterer has a unit cell
+with `N` periodic dimensions, which is the dimensionality of the problem.
+Any subtype of this can be used to define a problem, but the useful subtypes of it
+are `RCWASheet{N} <: RCWAScatterer{N}` which implements an interface for
+concrete scatterers with variable surface impedances, and concrete subtypes of
+`RCWAStack{N} <: RCWAScatterer{N}` exported by `DeltaRCWA` which represent
+sequences of sheets.
+For variable volume impedances, which would require a more computationally-expensive
+solver for the eigenmodes of Maxwell's equations in that structure such as
+[S⁴](http://www.stanford.edu/group/fan/S4/), a type `RCWASlab{N} <: RCWAScatterer{N}`
+is defined and could be extended with methods to calculate their scattering matrices.
 
 #### Creating a `RCWASheet`
 To create a sheet as part of a 2D photonic crystal, create a struct that is a subtype
-of `RCWASheet{T,1}` and store all the geometric/metasurface parameters you need in
+of `RCWASheet{1}` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
 # ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-struct TrivialSheet{T} <: RCWASheet{T, 1} end
+struct TrivialSheet{N} <: RCWASheet{N} end
 
 # ╔═╡ a4e6f529-b914-4445-a6ee-7a316e259b9e
-struct ComplexExpSheet{T} <: RCWASheet{T, 1}
+struct ComplexExpSheet{T} <: RCWASheet{1}
     θ::T # incidence angle
     θᵗ::T # transmission angle
 	k::T # wavenumber
@@ -189,20 +188,18 @@ Create a Tuple of the sheets you want to scatter off of and create a second Tupl
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
 ```julia
-struct SheetStack{T, N, L} <: RCWAScatterer{T, N}
-    sheets::Tuple{RCWASheet{T, N}, Vararg{RCWASheet{T, N}, L}}
+struct SheetStack{N, L} <: RCWAScatterer{N}
+    sheets::Tuple{RCWASheet{N}, Vararg{RCWASheet{N}, L}}
     depths::Tuple{Vararg{Float64, L}}
 end
 ```
-For convenience in defining a problem with one sheet, the DeltaRCWAProblem constructor
-will turn the sheet into a sheetstack for you.
 "
 
 # ╔═╡ 8297d683-f888-419c-812b-294397b16126
-nsheets = 2;
+nsheets = 2
 
 # ╔═╡ 989a6a21-71a8-4991-8a55-eb7f1d3d5f70
-gap(x) = 2L;
+gap(x) = 2L
 
 # ╔═╡ 73d6e43f-214b-47ea-b2fd-df60dc412ae1
 stack = SheetStack(
@@ -303,10 +300,10 @@ The `DeltaRCWASolution` objects can have recipes to analyze and visualize them.
 "
 
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
-plot(sol)
+plot(sol, combine=true, aspect_ratio=1)
 
 # ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
-plot(stacksol, combine=true, clim=(-1, 1))
+plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
 
 # ╔═╡ Cell order:
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
