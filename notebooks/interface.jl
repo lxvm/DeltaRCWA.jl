@@ -150,6 +150,9 @@ of `RCWASheet{1}` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
+# ╔═╡ 1a170417-901d-4a0f-9438-242ce3fc9702
+abstract type RCWASheet{N} end
+
 # ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
 struct TrivialSheet{N} <: RCWASheet{N} end
 
@@ -330,6 +333,7 @@ plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
 # ╠═1bc23e37-fb20-4d00-95b4-aa7334e18578
 # ╟─3e0209fe-f316-436d-b017-422844535579
 # ╠═a3035662-3261-43c7-a6cb-2cae4c8b8b0f
+# ╠═1a170417-901d-4a0f-9438-242ce3fc9702
 # ╠═a4e6f529-b914-4445-a6ee-7a316e259b9e
 # ╠═77281f06-fcc9-4f75-a415-217cf9e581c1
 # ╠═1192e390-1f87-486b-b6b4-7447f07f407b

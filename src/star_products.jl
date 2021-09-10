@@ -70,22 +70,19 @@ function smat_star(A::LinearMap, B::LinearMap)::LinearMap
     B₂₂ = LinearMap(x -> (B * vcat(zero(x), x))[(1+d):2d], d)
     invI_A₂₂B₁₁ = LinearMap(x -> gmres(I - A₂₂ * B₁₁, x), size(A₂₂, 1), size(B₁₁, 2))
     invI_B₁₁A₂₂ = LinearMap(x -> gmres(I - B₁₁ * A₂₂, x), size(B₁₁, 1), size(A₂₂, 2))
-    LinearMap(
-        function (x)
-            x₁ = @view x[1:d]
-            x₂ = @view x[(d+1):2d]
-            # This is slightly optimized to avoid repeating two linear mappings
-            y = A * vcat(x₁, fill(zero(eltype(x)), d))
-            y₁ = @view y[1:d]
-            y₂ = @view y[(d+1):2d]
-            z = B * vcat(fill(zero(eltype(x)), d), x₂)
-            z₁ = @view z[1:d]
-            z₂ = @view z[(d+1):2d]
-            vcat(
-                y₁ + A₁₂ * invI_B₁₁A₂₂ * B₁₁ * y₂ + A₁₂ * invI_B₁₁A₂₂ * z₁,
-                B₂₁ * invI_A₂₂B₁₁ * y₂ + z₂ + B₂₁ * invI_A₂₂B₁₁ * A₂₂ * z₁
-            )
-        end,
-        2d
-    )
+    LinearMap(2d) do x
+        x₁ = @view x[1:d]
+        x₂ = @view x[(d+1):2d]
+        # This is slightly optimized to avoid repeating two linear mappings
+        y = A * vcat(x₁, fill(zero(eltype(x)), d))
+        y₁ = @view y[1:d]
+        y₂ = @view y[(d+1):2d]
+        z = B * vcat(fill(zero(eltype(x)), d), x₂)
+        z₁ = @view z[1:d]
+        z₂ = @view z[(d+1):2d]
+        vcat(
+            y₁ + A₁₂ * invI_B₁₁A₂₂ * B₁₁ * y₂ + A₁₂ * invI_B₁₁A₂₂ * z₁,
+            B₂₁ * invI_A₂₂B₁₁ * y₂ + z₂ + B₂₁ * invI_A₂₂B₁₁ * A₂₂ * z₁
+        )
+    end
 end

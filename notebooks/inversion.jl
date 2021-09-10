@@ -315,9 +315,207 @@ id = [
 	1I(n)	LinearMap(0I(n))
 ]
 
+# ╔═╡ feba7f54-b0de-4761-919d-1260dcc14b8f
+md"
+## Layers of nesting
+
+We should confirm that the star products return the same result within a tolerance
+when there are several (>2) matrices to combine.
+To do this comparison we will define additional methods.
+"
+
+# ╔═╡ b952bfe3-2bd8-44be-a81a-b30a4f48e14a
+function ⋆(A::AbstractBlockMatrix, B::AbstractBlockMatrix)
+    # The inputs at the very least need to have conformable blocks
+    # However, the Redheffer star is defined for blocks of all same shape
+    invI_A₂₂B₁₁ = inv(I - A[Block(2, 2)] * B[Block(1, 1)])
+    invI_B₁₁A₂₂ = inv(I - B[Block(1, 1)] * A[Block(2, 2)])
+    mortar(
+        (A[Block(1, 1)] + A[Block(1, 2)] * invI_B₁₁A₂₂ * B[Block(1, 1)] * A[Block(2, 1)],        A[Block(1, 2)] * invI_B₁₁A₂₂ * B[Block(1, 2)]),
+        (B[Block(2, 1)] * invI_A₂₂B₁₁ * A[Block(2, 1)],        B[Block(2, 2)] + B[Block(2, 1)] * invI_A₂₂B₁₁ * A[Block(2, 2)] * B[Block(1, 2)]),
+    )
+end
+
+# ╔═╡ d8748cf3-94df-4875-9716-44769c83f3b2
+function ⋆(A::LinearMap, B::LinearMap)::LinearMap
+    d = Int(size(A, 1) // 2)
+    @assert size(A) == size(B) == reverse(size(A)) "maps must be endomorphisms"
+    A₁₁ = LinearMap(x -> (A * vcat(x, zero(x)))[1:d], d)
+    A₁₂ = LinearMap(x -> (A * vcat(zero(x), x))[1:d], d)
+    A₂₂ = LinearMap(x -> (A * vcat(zero(x), x))[(1+d):2d], d)
+    B₁₁ = LinearMap(x -> (B * vcat(x, zero(x)))[1:d], d)
+    B₂₁ = LinearMap(x -> (B * vcat(x, zero(x)))[(1+d):2d], d)
+    B₂₂ = LinearMap(x -> (B * vcat(zero(x), x))[(1+d):2d], d)
+    invI_A₂₂B₁₁ = LinearMap(x -> gmres(I - A₂₂ * B₁₁, x), size(A₂₂, 1), size(B₁₁, 2))
+    invI_B₁₁A₂₂ = LinearMap(x -> gmres(I - B₁₁ * A₂₂, x), size(B₁₁, 1), size(A₂₂, 2))
+    LinearMap(2d) do x
+		x₁ = @view x[1:d]
+		x₂ = @view x[(d+1):2d]
+		# This is slightly optimized to avoid repeating two linear mappings
+		y = A * vcat(x₁, fill(zero(eltype(x)), d))
+		y₁ = @view y[1:d]
+		y₂ = @view y[(d+1):2d]
+		z = B * vcat(fill(zero(eltype(x)), d), x₂)
+		z₁ = @view z[1:d]
+		z₂ = @view z[(d+1):2d]
+		vcat(
+			y₁ + A₁₂ * invI_B₁₁A₂₂ * B₁₁ * y₂ + A₁₂ * invI_B₁₁A₂₂ * z₁,
+			B₂₁ * invI_A₂₂B₁₁ * y₂ + z₂ + B₂₁ * invI_A₂₂B₁₁ * A₂₂ * z₁
+		)
+	end
+end
+
+# ╔═╡ 10f7b132-674e-4655-91f4-1b3953eefcdc
+inv(I - A₂₂ * A₁₁) ≈ Matrix(LinearMap(size(A₁₁, 1), size(A₂₂, 2)) do x; gmres(I - A₂₂ * A₁₁, x); end)
+
+# ╔═╡ 99420d2d-2eaf-4dd3-9dc7-ea08fa955be5
+md"
+check that block indexing is correct
+"
+
+# ╔═╡ 0d13c2e4-59c7-43fb-a918-0715f232a406
+function ⋆(A, B)
+    d = Int(size(A, 1) // 2)
+    @assert size(A) == size(B) == reverse(size(A)) "maps must be endomorphisms"
+    A₁₁ = LinearMap(x -> (A * vcat(x, zero(x)))[1:d], d)
+    A₁₂ = LinearMap(x -> (A * vcat(zero(x), x))[1:d], d)
+    A₂₂ = LinearMap(x -> (A * vcat(zero(x), x))[(1+d):2d], d)
+    B₁₁ = LinearMap(x -> (B * vcat(x, zero(x)))[1:d], d)
+    B₂₁ = LinearMap(x -> (B * vcat(x, zero(x)))[(1+d):2d], d)
+    B₂₂ = LinearMap(x -> (B * vcat(zero(x), x))[(1+d):2d], d)
+    invI_A₂₂B₁₁ = LinearMap(inv(Matrix(I - A₂₂ * B₁₁)))
+    # invI_A₂₂B₁₁ = LinearMap(x -> gmres(I - A₂₂ * B₁₁, x), size(A₂₂, 1), size(B₁₁, 2))
+    invI_B₁₁A₂₂ = LinearMap(inv(Matrix(I - B₁₁ * A₂₂)))
+    # invI_B₁₁A₂₂ = LinearMap(x -> gmres(I - B₁₁ * A₂₂, x), size(B₁₁, 1), size(A₂₂, 2))
+    LinearMap(2d) do x
+		x₁ = @view x[1:d]
+		x₂ = @view x[(d+1):2d]
+		# This is slightly optimized to avoid repeating two linear mappings
+		y = A * vcat(x₁, fill(zero(eltype(x)), d))
+		y₁ = @view y[1:d]
+		y₂ = @view y[(d+1):2d]
+		z = B * vcat(fill(zero(eltype(x)), d), x₂)
+		z₁ = @view z[1:d]
+		z₂ = @view z[(d+1):2d]
+		vcat(
+			y₁ + A₁₂ * invI_B₁₁A₂₂ * B₁₁ * y₂ + A₁₂ * invI_B₁₁A₂₂ * z₁,
+			B₂₁ * invI_A₂₂B₁₁ * y₂ + z₂ + B₂₁ * invI_A₂₂B₁₁ * A₂₂ * z₁
+		)
+	end
+end
+
 # ╔═╡ 774d6cbb-07ce-4a9c-bf82-b7fd475dcca6
 # verify the star identity
 M * ones(2n) ≈ (M ⋆ id) * ones(2n) ≈ (id ⋆ M) * ones(2n)
+
+# ╔═╡ 4d292003-38af-4060-bd5c-6a6a1e2244f1
+begin
+	Nlayers = 2
+	blocks = [Tuple(100I - rand(n, n) for _ in 1:4) for _ in 1:Nlayers]
+    bmat = [mortar(e[[1, 3]], e[[2, 4]]) for e in blocks]
+	bmap = [[LinearMap(e[1]) e[3]; e[2] e[4]] for e in blocks]
+	lmap = [LinearMap([e[1] e[3]; e[2] e[4]]) for e in blocks]
+	map = [[e[1] e[3]; e[2] e[4]] for e in blocks]
+end;
+
+# ╔═╡ 368ce9a1-4ec8-4f9c-a148-68325a4b7194
+blocks[1][1] ≈ Matrix(LinearMap(n,n) do x; (map[1] * vcat(x, zero(x)))[1:n]; end)
+
+# ╔═╡ 18ad0ba7-0d61-49c2-b9eb-9ef2a739e40d
+blocks[1][2] ≈ Matrix(LinearMap(n,n) do x; (map[1] * vcat(x, zero(x)))[(1+n):2n]; end)
+
+# ╔═╡ 903130b1-980b-4259-868a-66f207d48e41
+blocks[1][3] ≈ Matrix(LinearMap(n,n) do x; (map[1] * vcat(zero(x), x))[1:n]; end)
+
+# ╔═╡ 47c10091-3b39-4f6a-bdde-0b1bbcf10e30
+blocks[1][4] ≈ Matrix(LinearMap(n,n) do x; (map[1] * vcat(zero(x), x))[(1+n):2n]; end)
+
+# ╔═╡ cc9b6619-1f7d-462e-962d-5027eb8b5c3c
+# for el in (:bmat, :bmap, :lmap)
+# 	@eval $(Symbol(:S, el)) = $(el)[1]
+# 	for j in 2:Nlayers
+# 		@eval $(Symbol(:S, el)) = $(Symbol(:S, el)) ⋆ $(el)[$j]
+# 	end
+# end
+
+# ╔═╡ 823dd2f5-d3bd-4069-bbe1-ad838ddca4a8
+begin
+	Sbmat = bmat[1]
+	for j in 2:Nlayers
+		Sbmat = Sbmat ⋆ bmat[j]
+	end
+end
+
+# ╔═╡ bd0905fe-00bf-4ad0-b0d1-5d5d9aba04cf
+begin
+	Sbmap = bmap[1]
+	for j in 2:Nlayers
+		Sbmap = Sbmap ⋆ bmap[j]
+	end
+end
+
+# ╔═╡ 2a06b4e8-b3e8-436f-848b-bde664175505
+begin
+	Slmap = lmap[1]
+	for j in 2:Nlayers
+		Slmap = Slmap ⋆ lmap[j]
+	end
+end
+
+# ╔═╡ 4b9000b8-2210-48ae-afef-08055fa1851d
+begin
+	Smap = map[1]
+	for j in 2:Nlayers
+		Smap = Smap ⋆ map[j]
+	end
+end
+
+# ╔═╡ 374a89d2-708f-4d6b-9daa-49363a68f218
+v = rand(2n)
+
+# ╔═╡ 5a9d5d42-ddda-4b2e-aeae-020a39ae7c35
+vbmat = Sbmat * v
+
+# ╔═╡ 14a0a868-c6ca-40a6-95fd-4e2052936ca3
+vbmap = Sbmap * v
+
+# ╔═╡ a5aadcc0-8b47-4dde-8373-800d4583e369
+vlmap = Slmap * v
+
+# ╔═╡ 3d058953-c4a8-453b-b0ca-7ad8fa930c48
+vmap = Smap * v
+
+# ╔═╡ 0ad36213-5639-443e-81d3-d8904f507639
+Smap
+
+# ╔═╡ e501ad52-3ed5-4151-8dc1-7a362158e8c3
+vbmat ≈ vbmap
+
+# ╔═╡ 3b2038e7-87a7-4bd7-b823-f230058c95b9
+vbmat ≈ vlmap
+
+# ╔═╡ eb74c6e9-1db0-4dbc-8222-47b5fc8744db
+vbmat ≈ vmap
+
+# ╔═╡ 96f6d024-5c55-4b3b-adbf-4cc8eb996adb
+vlmap ≈ vmap
+
+# ╔═╡ e0c2c9a3-84be-4857-8e2a-022e29a1ae77
+vbmap ≈ vmap
+
+# ╔═╡ c4b7d46c-411c-462b-b326-d2816c61c8c9
+vbmap ≈ vlmap
+
+# ╔═╡ 4b3a570c-ba16-4bda-b8d8-81ade4b5e3e7
+norm(vmap - vlmap) / (norm(vmap) * norm(vlmap))
+
+# ╔═╡ cc4fcea9-eefe-4f5c-95bc-a1eac6873767
+begin
+	plot(vbmat, label="blockarray")
+	plot!(vbmap, label="block map")
+	plot!(vlmap, label="linear map")
+	plot!(vmap, label="array")
+end
 
 # ╔═╡ d25871e5-5e97-4b56-9c1c-0eac45d778d2
 md"
@@ -1233,6 +1431,36 @@ version = "0.9.1+5"
 # ╠═a2500f48-2406-47f1-adec-bd6e50f67955
 # ╠═1a23e5ce-c6e3-4658-83ad-9060ebe44230
 # ╠═774d6cbb-07ce-4a9c-bf82-b7fd475dcca6
+# ╟─feba7f54-b0de-4761-919d-1260dcc14b8f
+# ╠═b952bfe3-2bd8-44be-a81a-b30a4f48e14a
+# ╠═d8748cf3-94df-4875-9716-44769c83f3b2
+# ╠═10f7b132-674e-4655-91f4-1b3953eefcdc
+# ╠═99420d2d-2eaf-4dd3-9dc7-ea08fa955be5
+# ╠═368ce9a1-4ec8-4f9c-a148-68325a4b7194
+# ╠═18ad0ba7-0d61-49c2-b9eb-9ef2a739e40d
+# ╠═903130b1-980b-4259-868a-66f207d48e41
+# ╠═47c10091-3b39-4f6a-bdde-0b1bbcf10e30
+# ╠═0d13c2e4-59c7-43fb-a918-0715f232a406
+# ╠═4d292003-38af-4060-bd5c-6a6a1e2244f1
+# ╠═cc9b6619-1f7d-462e-962d-5027eb8b5c3c
+# ╠═823dd2f5-d3bd-4069-bbe1-ad838ddca4a8
+# ╠═bd0905fe-00bf-4ad0-b0d1-5d5d9aba04cf
+# ╠═2a06b4e8-b3e8-436f-848b-bde664175505
+# ╠═4b9000b8-2210-48ae-afef-08055fa1851d
+# ╠═374a89d2-708f-4d6b-9daa-49363a68f218
+# ╠═5a9d5d42-ddda-4b2e-aeae-020a39ae7c35
+# ╠═14a0a868-c6ca-40a6-95fd-4e2052936ca3
+# ╠═a5aadcc0-8b47-4dde-8373-800d4583e369
+# ╠═3d058953-c4a8-453b-b0ca-7ad8fa930c48
+# ╠═0ad36213-5639-443e-81d3-d8904f507639
+# ╠═e501ad52-3ed5-4151-8dc1-7a362158e8c3
+# ╠═3b2038e7-87a7-4bd7-b823-f230058c95b9
+# ╠═eb74c6e9-1db0-4dbc-8222-47b5fc8744db
+# ╠═96f6d024-5c55-4b3b-adbf-4cc8eb996adb
+# ╠═e0c2c9a3-84be-4857-8e2a-022e29a1ae77
+# ╠═c4b7d46c-411c-462b-b326-d2816c61c8c9
+# ╠═4b3a570c-ba16-4bda-b8d8-81ade4b5e3e7
+# ╠═cc4fcea9-eefe-4f5c-95bc-a1eac6873767
 # ╟─d25871e5-5e97-4b56-9c1c-0eac45d778d2
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

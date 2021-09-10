@@ -1,13 +1,13 @@
-export DeltaRCWAProblem, DeltaRCWASolution, solve
+export DeltaRCWAProblem, solve
 
 """
     DeltaRCWAProblem(
         structure::RCWAScatterer{N},
-        modes::PlanewaveModes{N},
+        modes::PlanewaveModes{T, N},
         pol::P where P <: AbstractPolarization,
         I₁::AbstractArray{<:Number, N},
         I₂::AbstractArray{<:Number, N},
-    ) where {T<: Number, N}
+    ) where {T, N}
 
 This type of problem assumes that the only type of scatterer are sheets and that
 the solution can be expressed entirely by one set of modes

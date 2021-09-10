@@ -131,35 +131,29 @@ function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceρₑσₘ, Z̃ˣˣ, Z̃ʸ�
 end
 function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceσₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
     _get_1D_uncoupled_GSTC_LinearMaps(Z̃ˣˣ, x -> x, x -> x, Z̃ʸʸ, kz, ωη)
-end
+end     
 function _get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
     N = size(kz, 1)
-    A = LinearMap(
-        function (x)
-            I₁ = x[1:N]
-            I₂ = x[(N+1):2N]
-            sumI₁I₂ = I₁ + I₂
-            diffI₁I₂ = I₁ - I₂
-            vcat(
-                xxwithkz(kz * diffI₁I₂) + xxother(2ωη * diffI₁I₂),
-                yywithkz(kz * sumI₁I₂) + yyother(0.5ωη * sumI₁I₂)
-            )
-        end,
-        2N
-    )
-    B = LinearMap(
-        function (x)
-            I₁ = x[1:N]
-            I₂ = x[(N+1):2N]
-            sumI₁I₂ = I₁ + I₂
-            diffI₁I₂ = I₁ - I₂
-            vcat(
-                xxwithkz(kz * diffI₁I₂) - xxother(2ωη * diffI₁I₂),
-                yywithkz(kz * sumI₁I₂) - yyother(0.5ωη * sumI₁I₂)
-            )
-        end,
-        2N
-    )
+    A = LinearMap(2N) do x
+        I₁ = x[1:N]
+        I₂ = x[(N+1):2N]
+        sumI₁I₂ = I₁ + I₂
+        diffI₁I₂ = I₁ - I₂
+        vcat(
+            xxwithkz(kz * diffI₁I₂) + xxother(2ωη * diffI₁I₂),
+            yywithkz(kz * sumI₁I₂) + yyother(0.5ωη * sumI₁I₂)
+        )
+    end
+    B = LinearMap(2N) do x
+        I₁ = x[1:N]
+        I₂ = x[(N+1):2N]
+        sumI₁I₂ = I₁ + I₂
+        diffI₁I₂ = I₁ - I₂
+        vcat(
+            xxwithkz(kz * diffI₁I₂) - xxother(2ωη * diffI₁I₂),
+            yywithkz(kz * sumI₁I₂) - yyother(0.5ωη * sumI₁I₂)
+        )
+    end
     A, B
 end
 
