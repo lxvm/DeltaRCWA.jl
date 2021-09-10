@@ -50,9 +50,7 @@ function compute_BIE_method(
     info = [1               2             1                    0]
     # The parameter M defines the number of boundary points to used in the discretization of the BIE
     λ = 2π/k
-    println("λ=$λ")
     M  = Int(round(max(NP,NP/λ))) # ~20 pts per unit length
-    println("M=$M")
     # Γ contains all the information of the discretized curve that is needed for the numerical solution of the problem
     Γ  = SkeletonCctor(ver,info,[M])
 
