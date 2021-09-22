@@ -22,16 +22,23 @@ parameters, described below.
 
 ## Sheet transition conditions
 
-For a sheet given by its normal vector $\hat{\boldsymbol n}$ that separates region
-$i$ from region $i+1$, the jump in the tangential electromagnetic fields at the
+For a sheet given by its normal vector
+<img src="https://render.githubusercontent.com/render/math?math=\hat{\boldsymbol n}">
+that separates region
+<img src="https://render.githubusercontent.com/render/math?math=i">
+from region
+<img src="https://render.githubusercontent.com/render/math?math=i%2B1">,
+the jump in the tangential electromagnetic fields at the
 surface of the sheet in each region is modeled by [1]:
 
-<img src="https://render.githubusercontent.com/render/math?math=\boldsymbol \rho_e (\hat{\boldsymbol n} \times (\boldsymbol H_\parallel^{i%2B1} - \boldsymbol H_\parallel^i)) = \frac{1}{2} (\boldsymbol E_\parallel^{i%2B1} %2B \boldsymbol E_\parallel^i)">
-<br/>
+<img src="https://render.githubusercontent.com/render/math?math=\boldsymbol \rho_e (\hat{\boldsymbol n} \times (\boldsymbol H_\parallel^{i%2B1} - \boldsymbol H_\parallel^i)) = \frac{1}{2} (\boldsymbol E_\parallel^{i%2B1} %2B \boldsymbol E_\parallel^i)"><br/>
 <img src="https://render.githubusercontent.com/render/math?math=(\boldsymbol E_\parallel^{i%2B1} - \boldsymbol E_\parallel^i) \times \hat{\boldsymbol n} = \boldsymbol \sigma_m \frac{1}{2} (\boldsymbol H_\parallel^{i%2B1} %2B \boldsymbol H_\parallel^i)">
 
-where $\boldsymbol \rho_e$ is the electrical impedance matrix and $\boldsymbol \sigma_m$ is the
-magnetic conductance matrix defined at each point in the sheet.
+where
+<img src="https://render.githubusercontent.com/render/math?math=\boldsymbol \rho_e">
+is the electrical impedance matrix and
+<img src="https://render.githubusercontent.com/render/math?math=\boldsymbol \sigma_m">
+is the magnetic conductance matrix defined at each point in the sheet.
 These equations and Maxwell's equations are used to derive a scattering matrix
 for the sheet in the planewave basis.
 
@@ -69,5 +76,5 @@ This is todo and not to be done until more of the package is working.
 
 - [1] [E. Kuester, M. Mohamed, M. Piket-May, and C. Holloway,
     “Averaged transition conditions for electromagnetic fields at a metafilm,”
-    IEEE Trans. Antennas Propag., vol. 51, no. 10, pp. 2641–2651, Oct. 2003.](
+    _IEEE Trans. Antennas Propag._, vol. 51, no. 10, pp. 2641–2651, Oct. 2003.](
     https://doi.org/10.1109/TAP.2003.817560)
