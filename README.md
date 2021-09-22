@@ -13,7 +13,7 @@ This can be viewed as a coarse proxy of a device composed of layered
 [metasurfaces](https://en.wikipedia.org/wiki/Electromagnetic_metasurface).
 An example of a valid geometry for `DeltaRCWA` is illustrated below:
 
-![](images/2021-08-13 stack figure.png)
+![](images/stack_figure.png)
 
 The illustration shows a single unit cell, though the actual device would repeat
 the unit cell infinitely in the plane of the sheet.
