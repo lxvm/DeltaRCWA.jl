@@ -22,20 +22,15 @@ parameters, described below.
 
 ## Sheet transition conditions
 
-For a sheet given by its normal vector $\hat{\bm n}$ that separates region
+For a sheet given by its normal vector $\hat{\boldsymbol n}$ that separates region
 $i$ from region $i+1$, the jump in the tangential electromagnetic fields at the
 surface of the sheet in each region is modeled by [1]:
 
-$$
-\bm \rho_e ( \hat{\bm n} \times (\bm H_\parallel^{i+1} - \bm H_\parallel^i)) =
-    \frac{1}{2} (\bm E_\parallel^{i+1} + \bm E_\parallel^i)
-$$
-$$
-(\bm E_\parallel^{i+1} - \bm E_\parallel^i) \times \hat{\bm n} =
-    \bm \sigma_m \frac{1}{2} (\bm H_\parallel^{i+1} + \bm H_\parallel^i)
-$$
+<img src="https://render.githubusercontent.com/render/math?math=\boldsymbol \rho_e (\hat{\boldsymbol n} \times (\boldsymbol H_\parallel^{i%2B1} - \boldsymbol H_\parallel^i)) = \frac{1}{2} (\boldsymbol E_\parallel^{i%2B1} %2B \boldsymbol E_\parallel^i)">
+<br/>
+<img src="https://render.githubusercontent.com/render/math?math=(\boldsymbol E_\parallel^{i%2B1} - \boldsymbol E_\parallel^i) \times \hat{\boldsymbol n} = \boldsymbol \sigma_m \frac{1}{2} (\boldsymbol H_\parallel^{i%2B1} %2B \boldsymbol H_\parallel^i)">
 
-where $\bm \rho_e$ is the electrical impedance matrix and $\bm \sigma_m$ is the
+where $\boldsymbol \rho_e$ is the electrical impedance matrix and $\boldsymbol \sigma_m$ is the
 magnetic conductance matrix defined at each point in the sheet.
 These equations and Maxwell's equations are used to derive a scattering matrix
 for the sheet in the planewave basis.
