@@ -49,13 +49,13 @@ S_{21} & S_{22}
 and a [star product in the scattering matrix convention](
 https://en.wikipedia.org/wiki/Redheffer_star_product#Connection_to_scattering_matrices)
 
-$S^A \star S^B =
+$A \star_S B =
 \begin{pmatrix}
-    S^A_{11} + S^A_{12} (I - S^B_{11} S^A_{22})^{-1} S^B_{11} S^A_{21} &
-    S^A_{12} (I - S^B_{11} S^A_{22})^{-1} S^B_{12}
+    A_{11} + A_{12} (I - B_{11} A_{22})^{-1} B_{11} A_{21} &
+    A_{12} (I - B_{11} A_{22})^{-1} B_{12}
     \\
-    S^B_{21} (I - S^A_{22} S^B_{11})^{-1} S^A_{21} &
-    S^B_{22} + S^B_{21} (I - S^A_{22} S^B_{11})^{-1} S^A_{22} S^B_{12}
+    B_{21} (I - A_{22} B_{11})^{-1} A_{21} &
+    B_{22} + B_{21} (I - A_{22} B_{11})^{-1} A_{22} B_{12}
 \end{pmatrix}$
 
 I am working with scattering matrices of the form $S = A^{-1} B$, so in practice
