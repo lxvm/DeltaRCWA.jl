@@ -167,7 +167,7 @@ function smatrixBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     N = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
-    _fft = LinearMap(fft, ifft, N)
+    _fft = LinearMap{ComplexF64}(fft, ifft, N)
     Z̃ˣˣ = _fft' * LinearMap(Diagonal(Zˣˣ)) * _fft
     Z̃ʸʸ = _fft' * LinearMap(Diagonal(Zʸʸ)) * _fft
     kz = LinearMap(Diagonal(modes.kz))
@@ -192,10 +192,8 @@ polarization
 """
 function smatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
     n = length(modes.kz)
-    BlockMatrix(
-        _2Dsheetsmatrix(_get_params_2Dsheetsmatrix(sheet, modes)...),
-        [2n, 2n], [2n, 2n]
-    )
+    A, B = _2Dsheetsmatrix(sheet, modes)
+    BlockMatrix(A\B, [2n, 2n], [2n, 2n])
 end
 
 "Return the variables needed to construct the dense scattering matrix"
@@ -210,16 +208,16 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
     ωμ = modes.ω * modes.M.μ
     k⃗² = modes.ω * modes.M.ϵ * ωμ
     ρₑ = (
-        xx = ρₑˣˣ(sheet, modes.x⃗),
-        xy = ρₑˣʸ(sheet, modes.x⃗),
-        yx = ρₑʸˣ(sheet, modes.x⃗),
-        yy = ρₑʸʸ(sheet, modes.x⃗),
+        xx = ρₑˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        xy = ρₑˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yx = ρₑʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yy = ρₑʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
     )
     σₘ = (
-        xx = σₘˣˣ(sheet, modes.x⃗),
-        xy = σₘˣʸ(sheet, modes.x⃗),
-        yx = σₘʸˣ(sheet, modes.x⃗),
-        yy = σₘʸʸ(sheet, modes.x⃗),
+        xx = σₘˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        xy = σₘˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yx = σₘʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yy = σₘʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
     )
     K = (
         xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
@@ -230,10 +228,11 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
     ρₑ, σₘ, R, K, modes.kz, k⃗², ωμ
 end
 
-function _2Dsheetsmatrix(ρₑ, σₘ, R, K, kz, k⃗², ωμ)
+function _2Dsheetsmatrix(sheet, modes)
+    ρₑ, σₘ, R, K, kz, k⃗², ωμ = _get_params_2Dsheetsmatrix(sheet, modes)
     K_term = mortar(
-        Diagonal.(reshape.((k⃗² .+ K.xx, K.xy), :)),
-        Diagonal.(reshape.((K.xy, k⃗² .+ K.yy), :)),
+        Diagonal.(reshape.((K.xx .- k⃗², K.xy), :)),
+        Diagonal.(reshape.((K.xy, K.yy .- k⃗²), :)),
     )
     R_term = mortar(
         (R.xx, R.xy),
@@ -252,24 +251,19 @@ function _2Dsheetsmatrix(ρₑ, σₘ, R, K, kz, k⃗², ωμ)
     σ̃_term = Matrix(K_term * σ̃_term)
     # return ρ̃_term, ρₑ
     kz_term = ωμ * Diagonal(vcat(reshape.((kz, kz), :)...))
-    A = _get_2Dsmatrix_scattered_side(ρ̃_term, σ̃_term, kz_term)
-    B = _get_2Dsmatrix_incident_side(ρ̃_term, σ̃_term, kz_term)
-    # return A, B   
-    A\B
+    _build_2D_GSTC_smatrix(ρ̃_term, σ̃_term, kz_term)
 end
 
-function _get_2Dsmatrix_scattered_side(ρ̃_term, σ̃_term, kz_term)
-    [
-        ρ̃_term - 0.5*kz_term   -ρ̃_term + 0.5*kz_term;
-        σ̃_term + 2*kz_term     σ̃_term + 2*kz_term
+function _build_2D_GSTC_smatrix(ρ̃_term, σ̃_term, kz_term)
+    A = [
+        -ρ̃_term + 0.5*kz_term   ρ̃_term - 0.5*kz_term;
+        -σ̃_term + 2*kz_term     -σ̃_term + 2*kz_term
     ]
-end
-
-function _get_2Dsmatrix_incident_side(ρ̃_term, σ̃_term, kz_term)
-    [
+    B = [
         ρ̃_term + 0.5*kz_term   -ρ̃_term - 0.5*kz_term;
-        σ̃_term - 2*kz_term     σ̃_term - 2*kz_term
+        σ̃_term + 2*kz_term     σ̃_term - 2*kz_term
     ]
+    A, B
 end
 
 function smatrixLinearMap end

@@ -5,7 +5,7 @@
 
 # Another idea: build a dictionary of planewavemode objects when solving problem
 
-export get_kz, PlanewaveModes, WeightedModes
+export get_kz, PlanewaveModes
 
 """
     get_kz(k⃗, ω, [M::UniformMedium])
@@ -51,23 +51,4 @@ function PlanewaveModes(ω::Float64, dims::NTuple{N, Tuple{Int64, Float64}}, M::
     kz = get_kz(k⃗, ω, M)
     # is_propagating = BitArray(@. isreal(kz) & !(iszero(kz)))
     PlanewaveModes(ω, M, dims, x⃗, k⃗, kz)
-end
-
-
-"""
-Use this struct to define weights over the distribution of modes.
-Make sure that the fastest-changing index of the weight array
-(Julia is column-major) corresponds to the first set of Frequencies in modes.k⃗
-"""
-struct WeightedModes{T, N}
-    weights::Array{ComplexF64, N}
-    modes::PlanewaveModes{T, N}
-    function WeightedModes(weights::Array{ComplexF64, N}, modes::PlanewaveModes{T, N}) where {T, N}
-        @assert size(weights) == Tuple(e[1] for e in modes.dims)
-        new{T, N}(weights, modes)
-    end
-end
-
-function WeightedModes(weights::AbstractArray{<: Number, N}, modes::PlanewaveModes{T, N}) where {T, N}
-    WeightedModes(convert(Array{ComplexF64}, weights), modes)
 end

@@ -10,7 +10,7 @@ module DeltaRCWA
 
 using LinearAlgebra: I, inv, Diagonal
 
-using BlockArrays: mortar, Block, BlockVector, BlockMatrix, AbstractBlockMatrix
+using BlockArrays
 using FFTW: fftfreq, fft, ifft, bfft, Frequencies
 using RecipesBase
 using KrylovKit: linsolve
@@ -28,18 +28,6 @@ by parameters of type `T`.
 `N=0` is for a 1D photonic crystal, `N=1` is for 2D and so on. Note that `N<=2`.
 """
 abstract type RCWAScatterer{N} end
-
-# """
-#     RCWAInterface{T, N} <: RCWAScatterer{T, N}
-
-# An abstract type to dispatch methods for 2D structures at the interface of two
-# homogenous media modelled with Generalized Sheet Transition Conditions (GSTCs).
-# See:
-# Kuester, Edward et al.
-# "A generalized sheet transition condition model for a metafilm partially embedded in an interface"
-# https://doi.org/10.1109/APS.2010.5562250
-# """
-# abstract type RCWAInterface{T, N} <: RCWAScatterer{T, N} end
 
 """
     RCWASheet{N} <: RCWAScatterer{N}

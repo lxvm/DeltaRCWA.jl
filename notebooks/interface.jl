@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.1
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -9,9 +9,6 @@ import Pkg
 
 # ╔═╡ 9c58eb1a-313f-4f89-9958-7f33c7a072d3
 Pkg.activate(".")
-
-# ╔═╡ b4a594f1-a38c-4ede-9860-d4a5afae15c5
-using Revise
 
 # ╔═╡ 55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
 using DeltaRCWA
@@ -150,14 +147,11 @@ of `RCWASheet{1}` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
-# ╔═╡ 1a170417-901d-4a0f-9438-242ce3fc9702
-abstract type RCWASheet{N} end
-
 # ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
 struct TrivialSheet{N} <: RCWASheet{N} end
 
 # ╔═╡ a4e6f529-b914-4445-a6ee-7a316e259b9e
-struct ComplexExpSheet{T} <: RCWASheet{1}
+struct ComplexExpSheet{N, T} <: RCWASheet{N}
     θ::T # incidence angle
     θᵗ::T # transmission angle
 	k::T # wavenumber
@@ -180,7 +174,7 @@ L = λ/abs(d) # unit-cell width/periodicity of ComplexExpSheet
 dims = ((Nmodes, L), )
 
 # ╔═╡ 6bfcdf25-1f4e-4724-a4bc-14a0222e2c2d
-sheet = ComplexExpSheet(θ, θᵗ, ω, d)
+sheet = ComplexExpSheet{1, Float64}(θ, θᵗ, ω, d)
 
 # ╔═╡ a13facc7-06b6-4559-bf2f-a43afb3ffcfe
 md"
@@ -308,10 +302,85 @@ plot(sol, combine=true, aspect_ratio=1)
 # ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
 plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
 
+# ╔═╡ 10442fb5-d595-4ef6-a1e9-4d588609dbaf
+md"""
+## Example of 3D interface
+"""
+
+# ╔═╡ b4c64a24-8d14-4054-b6d6-ad7952425115
+sheet3d = ComplexExpSheet{2, Float64}(θ, θᵗ, ω, d)
+
+# ╔═╡ 8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
+stack3d = SheetStack(
+	Tuple(sheet3d for i in 1:nsheets),
+	Tuple(gap(i) for i in 1:(nsheets-1)),
+)
+
+# ╔═╡ 4e412a25-1176-4db9-955b-130fd87e734b
+Mmodes = 1 # additional points along y dimension
+
+# ╔═╡ feb92d68-8034-44bf-aba1-bec640315d8f
+NMmodes = Nmodes * Mmodes
+
+# ╔═╡ 38dca2e1-2788-4bd9-ad9f-1cfb78bab06c
+I₁ˣ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
+
+# ╔═╡ b6fed619-11f8-40a2-80dd-123adaf9c77c
+I₂ˣ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
+
+# ╔═╡ 3aafea78-513f-4a5c-8a1d-5b689a358a4e
+I₁ʸ = [n == m == modeN ? 1 : 0 for n in 1:Nmodes, m in 1:Mmodes]
+
+# ╔═╡ 213628fd-77a1-4753-bc30-f78c36ddd801
+I₂ʸ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
+
+# ╔═╡ bf01b9d0-4437-422f-a769-05955a41e2b1
+dims3d = ((Nmodes, L), (Mmodes, L/L))
+
+# ╔═╡ c68fc7c6-5eae-4984-82bf-4368ad910610
+prob3d = DeltaRCWAProblem(sheet3d, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+
+# ╔═╡ b966638a-fca0-4431-ac6a-e094c03b138c
+sol3d = solve(prob3d)
+
+# ╔═╡ 7eb3f960-c89a-40c7-9c20-f157a2c394a1
+z⃗ = range(-L, L, length=2Nmodes)
+
+# ╔═╡ d487aace-25f6-4706-985a-c52bb5799612
+z⃗₁ = z⃗[z⃗ .< 0]
+
+# ╔═╡ 458e253d-f1f0-4e26-bd4a-831a44cd6722
+z⃗₂ = z⃗[z⃗ .> 0]
+
+# ╔═╡ d5d5ac2a-c94d-4695-8c19-63b9147c29fe
+begin
+	# quick plotting
+	CO₁ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₁)) .* sol3d.O₁[NMmodes.+(1:Nmodes)], 1))
+	CI₂ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₂)) .* sol3d.I₂[NMmodes.+(1:Nmodes)], 1))
+	CI₁ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₁)) .* sol3d.I₁[NMmodes.+(1:Nmodes)], 1))
+	CO₂ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₂)) .* sol3d.O₂[NMmodes.+(1:Nmodes)], 1))
+	heatmap(sol.modes.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
+end
+
+# ╔═╡ 301ad780-83a1-46f3-a027-ef8a4ca198f6
+prob3dstack = DeltaRCWAProblem(stack3d, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+
+# ╔═╡ f155c239-2001-4fd1-84b2-558827c7cdd2
+sol3dstack = solve(prob3dstack)
+
+# ╔═╡ d7372f04-0ede-42ee-b9f5-0e96a2004d68
+begin
+	# quick plotting
+	DO₁ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₁)) .* sol3dstack.O₁[NMmodes.+(1:Nmodes)], 1))
+	DI₂ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₂)) .* sol3dstack.I₂[NMmodes.+(1:Nmodes)], 1))
+	DI₁ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₁)) .* sol3dstack.I₁[NMmodes.+(1:Nmodes)], 1))
+	DO₂ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₂)) .* sol3dstack.O₂[NMmodes.+(1:Nmodes)], 1))
+	heatmap(sol.modes.x⃗, z⃗, real.(cat(DI₁ + DO₁, DI₂ + DO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
+end
+
 # ╔═╡ Cell order:
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
 # ╠═9c58eb1a-313f-4f89-9958-7f33c7a072d3
-# ╠═b4a594f1-a38c-4ede-9860-d4a5afae15c5
 # ╠═55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
 # ╠═65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 # ╟─0a627414-a5af-4fc3-852f-c98105e4d860
@@ -333,7 +402,6 @@ plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
 # ╠═1bc23e37-fb20-4d00-95b4-aa7334e18578
 # ╟─3e0209fe-f316-436d-b017-422844535579
 # ╠═a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-# ╠═1a170417-901d-4a0f-9438-242ce3fc9702
 # ╠═a4e6f529-b914-4445-a6ee-7a316e259b9e
 # ╠═77281f06-fcc9-4f75-a415-217cf9e581c1
 # ╠═1192e390-1f87-486b-b6b4-7447f07f407b
@@ -357,3 +425,22 @@ plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
 # ╟─2bc3991d-9626-4464-a532-5ab7705e454b
 # ╠═77400f50-4e25-4fe6-8a0a-16f6cf6cb150
 # ╠═d8d2123c-92ce-422e-bb68-bb09e689d44c
+# ╟─10442fb5-d595-4ef6-a1e9-4d588609dbaf
+# ╠═4e412a25-1176-4db9-955b-130fd87e734b
+# ╠═feb92d68-8034-44bf-aba1-bec640315d8f
+# ╠═38dca2e1-2788-4bd9-ad9f-1cfb78bab06c
+# ╠═b6fed619-11f8-40a2-80dd-123adaf9c77c
+# ╠═3aafea78-513f-4a5c-8a1d-5b689a358a4e
+# ╠═213628fd-77a1-4753-bc30-f78c36ddd801
+# ╠═b4c64a24-8d14-4054-b6d6-ad7952425115
+# ╠═bf01b9d0-4437-422f-a769-05955a41e2b1
+# ╠═c68fc7c6-5eae-4984-82bf-4368ad910610
+# ╠═b966638a-fca0-4431-ac6a-e094c03b138c
+# ╠═7eb3f960-c89a-40c7-9c20-f157a2c394a1
+# ╠═d487aace-25f6-4706-985a-c52bb5799612
+# ╠═458e253d-f1f0-4e26-bd4a-831a44cd6722
+# ╠═d5d5ac2a-c94d-4695-8c19-63b9147c29fe
+# ╠═8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
+# ╠═301ad780-83a1-46f3-a027-ef8a4ca198f6
+# ╠═f155c239-2001-4fd1-84b2-558827c7cdd2
+# ╠═d7372f04-0ede-42ee-b9f5-0e96a2004d68

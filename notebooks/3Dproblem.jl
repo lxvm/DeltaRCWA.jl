@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.16.1
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -65,7 +65,7 @@ d  = cos(θᵗ)-cos(θⁱ) # metasurface design parameter
 L = (2*π)/(k*abs(d))  # Unit cell width
 
 # ╔═╡ c2ea899f-29cf-44d2-b5f0-108b1b9bbb4c
-ρₑˣˣ(x⃗) = sin(abs(θⁱ)) * (1 - exp.(im*k*d*x⃗[1]))
+ρₑˣˣ(x⃗) = 0.5sin(abs(θⁱ)) * (1 - exp.(im*k*d*x⃗[1]))
 
 # ╔═╡ b551098c-c1c3-45c0-9129-99f555acbf4f
 ρₑˣʸ(x⃗) = zero(eltype(x⃗[1]))
@@ -86,7 +86,7 @@ L = (2*π)/(k*abs(d))  # Unit cell width
 σₘʸˣ(x⃗) = zero(eltype(x⃗[1]))
 
 # ╔═╡ ead74c7d-b9cf-40fc-b2d8-9f6357599d63
-σₘʸʸ(x⃗) = sin(abs(θⁱ)) * (1 + exp(im*k*d*x⃗[1]))
+σₘʸʸ(x⃗) = 2sin(abs(θⁱ)) * (1 + exp(im*k*d*x⃗[1]))
 
 # ╔═╡ 5f608c76-a381-468a-824b-5be3f1a1c009
 md"
@@ -97,7 +97,7 @@ md"
 Nx = 25 # number of discretization points / modes along unit cell
 
 # ╔═╡ dfdcfa71-2876-4e3f-be1a-27730fcfc47c
-Ny = 10
+Ny = 1
 
 # ╔═╡ 4216696f-8958-4691-9f77-c9b77998ea55
 Nxy = Nx * Ny
@@ -183,12 +183,12 @@ begin
     ρ̃ₑˣˣ = diagFT(ρₑˣˣ.(Iterators.product(x⃗)))
     σ̃ₘʸʸ = diagFT(σₘʸʸ.(Iterators.product(x⃗)))
     A = [
-        -β̂ˣ-kᵢ*ρ̃ₑˣˣ    -β̂ˣ-kᵢ*ρ̃ₑˣˣ;
-        -β̂ˣ-kᵢ*σ̃ₘʸʸ     β̂ˣ+kᵢ*σ̃ₘʸʸ
+        0.5β̂ˣ+kᵢ*ρ̃ₑˣˣ    -0.5β̂ˣ-kᵢ*ρ̃ₑˣˣ;
+        2β̂ˣ+kᵢ*σ̃ₘʸʸ     2β̂ˣ+kᵢ*σ̃ₘʸʸ
     ]
     B = [
-        -β̂ˣ+kᵢ*ρ̃ₑˣˣ    -β̂ˣ+kᵢ*ρ̃ₑˣˣ;
-        -β̂ˣ+kᵢ*σ̃ₘʸʸ     β̂ˣ-kᵢ*σ̃ₘʸʸ
+        0.5β̂ˣ-kᵢ*ρ̃ₑˣˣ    -0.5β̂ˣ+kᵢ*ρ̃ₑˣˣ;
+        2β̂ˣ-kᵢ*σ̃ₘʸʸ     2β̂ˣ-kᵢ*σ̃ₘʸʸ
     ]
 	S = A\B
 	if θⁱ < 0
@@ -238,24 +238,14 @@ K = [
 	diagFT(ρₑʸˣ.(r⃗))	diagFT(ρₑʸʸ.(r⃗))
 ]
 
+# ╔═╡ 9159265a-1858-42c8-8ab0-e48c3cfa86eb
+ρ̃′ₑ = R' * ρ̃ₑ * R
+
 # ╔═╡ 78eb0b10-c309-4da4-8bfc-75d1642b90f7
 σ̃ₘ = [
 	diagFT(σₘˣˣ.(r⃗))	diagFT(σₘˣʸ.(r⃗));
 	diagFT(σₘʸˣ.(r⃗))	diagFT(σₘʸʸ.(r⃗))
 ]
-
-# ╔═╡ 438791df-3fc3-4bd4-bae3-e2df5afaca2d
-function _get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
-    A = [
-        (xxwithkz * kz + 2ωη * xxother)   (-xxwithkz * kz - 2ωη * xxother);
-        (yywithkz * kz + 0.5ωη * yyother) (yywithkz * kz + 0.5ωη * yyother)
-    ]
-    B = [
-        (xxwithkz * kz - 2ωη * xxother)   (-xxwithkz * kz + 2ωη * xxother);
-        (yywithkz * kz - 0.5ωη * yyother) (yywithkz * kz - 0.5ωη * yyother)
-    ]
-    A, B
-end
 
 # ╔═╡ b34d564a-7c80-4fa9-aa6d-14d30887d894
 β̂ˣʸ = [
@@ -268,14 +258,16 @@ k⃗² = kᵢ^2*I(2Nxy)
 
 # ╔═╡ da289e3e-283b-41b3-82cc-8342b7417cf4
 AA = [
-	((k⃗² + K) * R' * ρ̃ₑ * R - 0.5kᵢ*β̂ˣʸ)	(-(k⃗² + K) * R' * ρ̃ₑ * R + 0.5kᵢ*β̂ˣʸ);
-	((k⃗² + K) * σ̃ₘ + 2kᵢ*β̂ˣʸ)	((k⃗² + K) * σ̃ₘ + 2kᵢ*β̂ˣʸ)
+	(-(K - k⃗²) * ρ̃′ₑ + 0.5kᵢ*β̂ˣʸ)	((K - k⃗²) * ρ̃′ₑ - 0.5kᵢ*β̂ˣʸ);
+	(-(K - k⃗²) * σ̃ₘ + 2kᵢ*β̂ˣʸ)		(-(K - k⃗²) * σ̃ₘ + 2kᵢ*β̂ˣʸ)
+	# (-(R * K * R' - k⃗²) + 0.5kᵢ*β̂ˣʸ * σ̃ₘ)		((R * K * R' - k⃗²) - 0.5kᵢ*β̂ˣʸ * σ̃ₘ)
 ]
 
 # ╔═╡ 111d9973-91bb-481c-b33e-067cfe11d0e1
 BB = [
-	((k⃗² + K) * R' * ρ̃ₑ * R + 0.5kᵢ*β̂ˣʸ)	(-(k⃗² + K) * R' * ρ̃ₑ * R - 0.5kᵢ*β̂ˣʸ);
-	((k⃗² + K) * σ̃ₘ - 2kᵢ*β̂ˣʸ)	((k⃗² + K) * σ̃ₘ - 2kᵢ*β̂ˣʸ)
+	((K - k⃗²) * ρ̃′ₑ + 0.5kᵢ*β̂ˣʸ)	(-(K - k⃗²) * ρ̃′ₑ - 0.5kᵢ*β̂ˣʸ);
+	((K - k⃗²) * σ̃ₘ + 2kᵢ*β̂ˣʸ)		((K - k⃗²) * σ̃ₘ + 2kᵢ*β̂ˣʸ)
+	# ((R * K * R' - k⃗²) + 0.5kᵢ*β̂ˣʸ * σ̃ₘ)		(-(R * K * R' - k⃗²) - 0.5kᵢ*β̂ˣʸ * σ̃ₘ)
 ]
 
 # ╔═╡ 8a686e69-6b69-4e68-8b79-23140b5ee4dd
@@ -284,10 +276,10 @@ SS = AA\BB
 # ╔═╡ 1d3b118a-a8b0-4dad-aecb-a75e9ea3161b
 begin
 	### Define equivalent 2D inputs
-	I₁ˣ = vec([m==n==1 ? 1 : 0 for n in 1:Nx, m in 1:Ny])
-	I₂ˣ = vec(zeros(Nx, Ny))
-	I₁ʸ = vec(zeros(Nx, Ny))
-	I₂ʸ = vec(zeros(Nx, Ny))
+	I₁ˣ = [n==1 ? 0 : 0 for n in 1:Nxy]
+	I₂ˣ = [n==1 ? 0 : 0 for n in 1:Nxy]
+	I₁ʸ = [n==1 ? 1 : 0 for n in 1:Nxy]
+	I₂ʸ = [n==1 ? 0 : 0 for n in 1:Nxy]
 end;
 
 # ╔═╡ e2892425-ca03-4823-89be-8ebc4439206b
@@ -304,10 +296,10 @@ end;
 # ╔═╡ 209f25c0-aecd-4983-888e-ddaa4b513e0e
 begin
 	# quick plotting
-	CO₁ = rotr90(bfft(exp.(-β⃗ˣ * transpose(im * z⃗₁)) .* O₁ˣ[1:Nx], 1))
-	CI₂ = rotr90(bfft(exp.(-β⃗ˣ * transpose(im * z⃗₂)) .* I₂ˣ[1:Nx], 1))
-	CI₁ = rotr90(bfft(exp.( β⃗ˣ * transpose(im * z⃗₁)) .* I₁ˣ[1:Nx], 1))
-	CO₂ = rotr90(bfft(exp.( β⃗ˣ * transpose(im * z⃗₂)) .* O₂ˣ[1:Nx], 1))
+	CO₁ = rotr90(bfft(exp.(-β⃗ˣ * transpose(im * z⃗₁)) .* O₁ʸ[1:Nx], 1))
+	CI₂ = rotr90(bfft(exp.(-β⃗ˣ * transpose(im * z⃗₂)) .* I₂ʸ[1:Nx], 1))
+	CI₁ = rotr90(bfft(exp.( β⃗ˣ * transpose(im * z⃗₁)) .* I₁ʸ[1:Nx], 1))
+	CO₂ = rotr90(bfft(exp.( β⃗ˣ * transpose(im * z⃗₂)) .* O₂ʸ[1:Nx], 1))
 	heatmap(x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
 end
 
@@ -514,9 +506,9 @@ version = "1.0.10+0"
 
 [[GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
-git-tree-sha1 = "dba1e8614e98949abfa60480b13653813d8f0157"
+git-tree-sha1 = "0c603255764a1fa0b61752d2bec14cfbd18f7fe8"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
-version = "3.3.5+0"
+version = "3.3.5+1"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "Sockets", "Test", "UUIDs"]
@@ -1239,8 +1231,8 @@ version = "0.9.1+5"
 # ╠═8006c599-9451-4d85-b18e-adf2cd4eca56
 # ╠═36e2b2e0-c5f4-4d9c-92f9-779828c44e2f
 # ╠═edf27dee-85ea-42e6-a489-a8fea95d3075
+# ╠═9159265a-1858-42c8-8ab0-e48c3cfa86eb
 # ╠═78eb0b10-c309-4da4-8bfc-75d1642b90f7
-# ╠═438791df-3fc3-4bd4-bae3-e2df5afaca2d
 # ╠═b34d564a-7c80-4fa9-aa6d-14d30887d894
 # ╠═97bc0901-86ba-4f1d-b217-f25069977395
 # ╠═da289e3e-283b-41b3-82cc-8342b7417cf4

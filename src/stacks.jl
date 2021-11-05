@@ -14,7 +14,7 @@ for method in (:smatrix, :smatrixBlockMap, :smatrixLinearMap)
         S = $(method)(stack.sheets[1], modes, pol)
         for i in eachindex(stack.depths)
             propagator = $(method)(UniformSlab(stack.depths[i]), modes, pol)
-            S = S ⋆ (propagator ⋆ $(method)(stack.sheets[i+1], modes, pol))
+            S = S ⋆ₛ (propagator ⋆ₛ $(method)(stack.sheets[i+1], modes, pol))
         end
         S
     end
