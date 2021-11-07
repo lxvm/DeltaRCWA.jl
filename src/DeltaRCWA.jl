@@ -17,7 +17,7 @@ using KrylovKit: linsolve
 using IterativeSolvers: gmres
 using LinearMaps: LinearMap, BlockMap
 
-export RCWAScatterer, RCWASheet, RCWASlab, RCWAInterface, RCWAStack
+export RCWAScatterer, RCWASheet, RCWASlab, RCWAStack
 
 """
     RCWAScatterer{T <: Number, N}
@@ -151,7 +151,5 @@ include("stacks.jl")
 include("DeltaRCWAProblem.jl")
 include("star_products.jl")
 include("plotting.jl")
-
-include("Luke_functions.jl")
 
 end

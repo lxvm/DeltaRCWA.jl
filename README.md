@@ -1,14 +1,20 @@
 # DeltaRCWA.jl
 
+## About
+
 `DeltaRCWA.jl` is a frequency-domain solver for the scattering of
 electromagnetic fields through stacks of periodic, variable-impedance sheets
-which employs sheet-transition conditions with
+suspended in vacuum that employs sheet-transition conditions with
 [RCWA](https://en.wikipedia.org/wiki/Rigorous_coupled-wave_analysis).
+
+This project was started by Luke Qi [in this
+repository](https://github.com/Mastercheese77/deltaRCWA) and has been conducted
+under the supervision of Professor Steven G. Johnson and Dr. Raphaël Pestourie.
 
 ## Device geometries
 
 A geometry for `DeltaRCWA` represents a device composed of a stack of periodic,
-variable-impedance sheets separated by gaps of a uniform dielectric medium.
+variable-impedance sheets suspended in vacuum.
 This can be viewed as a coarse proxy of a device composed of layered
 [metasurfaces](https://en.wikipedia.org/wiki/Electromagnetic_metasurface).
 An example of a valid geometry for `DeltaRCWA` is illustrated below:
