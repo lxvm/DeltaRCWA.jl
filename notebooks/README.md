@@ -1,17 +1,15 @@
 # Notebooks
 
-`DeltaRCWA.ipynb` is a Jupyter notebook exploring the scattering matrix of a sheet-transition condition.
-
-`star_test.jl` is a Pluto notebook explaining `DeltaRCWA.ipynb` and providing some comparisons to boundary integral techniques for the same
+`3Dproblem.jl` verifies the 3D scattering matrix against the 2D one.
 
 `interface.jl` describes how to use the interface provided by `DeltaRCWA`.
 
-`derivations.jl` uses `Symbolics.jl` to derive the scattering matrix from Generalized Sheet Transition Conditions.
+`GSTC.jl` uses `Symbolics.jl` to form scattering matrix from GSTCs.
 
 `inversion.jl` demonstrates use of iterative solvers, compares their accuracy
 at inverting blocks of a matrix, and benchmarks different methods.
 
-`Fresnel.jl` shows how `DeltaRCWA` recovers Fresnel scattering in the limit of nonconducting metasurfaces.
+`Fresnel.jl` shows how GSTCs recover Fresnel scattering.
 
 ## Setting up this environment
 
@@ -26,7 +24,8 @@ pkg> dev DeltaRCWA
 pkg> instantiate
 ```
 
-Now the environment should be activated and starting one of the notebooks can be done with `using Pluto; Pluto.run()` or `using IJulia; notebook()` depending on the type of notebook.
+Now the environment should be activated and starting one of the notebooks can be
+done with `using Pluto; Pluto.run()`.
 
 Instructions
 - Install [Julia](https://julialang.org/)
