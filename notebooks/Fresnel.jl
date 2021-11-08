@@ -279,6 +279,11 @@ Next if we move the scattered components, (1,-) and (2,+), to the left and the i
 \end{align}
 ```
 Note that if the two media are the same (i.e. ``\epsilon^1=\epsilon^2, \mu^1=\mu^2``) then ``\bm{\Omega}^1 = \bm{\Omega}^2`` and the scattering matrix has an overall factor of ``\Omega`` that can be removed, which recovers the result for the scattering matrix in a homogenous medium.
+In fact we can manipulate this expression further using the specific form of the inverse
+```math
+(\bm{\Omega}^i)^{-1} = \bm{R}^{-1} \bm{\Omega}^i \bm{R} \frac{1}{\omega^2 \epsilon^i \mu^i (k_z^i)^2}
+```
+due to the fact ``\bm{\Omega}^i`` is a square block matrix whose blocks are diagonal matrices.
 """
 
 # ╔═╡ 325b8359-ebac-434b-bba1-31aba05c2c39
