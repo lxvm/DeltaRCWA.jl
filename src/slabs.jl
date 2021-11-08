@@ -29,9 +29,9 @@ Returns the scattering matrix due to mode propagation through the z-direction by
 adding a phase to each mode corresponding to the wavevector component kz, its
 sign, and the depth of the layer
 """
-function smatrix(slab::UniformSlab, modes, pol)::BlockMatrix
-    fw, bk = _get_propagators(reshape(modes.kz, :), slab.depth)
-    zo = (Bool(0) * I)(length(modes.kz))
+function smatrix(slab::UniformSlab, modes::PlanewaveModes{T, N}, pol)::BlockMatrix where {T, N}
+    fw, bk = _get_propagators(repeat(reshape(modes.kz, :), N), slab.depth)
+    zo = (Bool(0) * I)(N*length(modes.kz))
     mortar(
         (zo, bk),
         (fw, zo),

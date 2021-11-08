@@ -185,8 +185,8 @@ Create a Tuple of the sheets you want to scatter off of and create a second Tupl
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
 ```julia
-struct SheetStack{N, L} <: RCWAScatterer{N}
-    sheets::Tuple{RCWASheet{N}, Vararg{RCWASheet{N}, L}}
+struct SheetStack{N, L, T<:Tuple{RCWASheet{N}, Vararg{RCWASheet{N}, L}}} <: RCWAStack{N}
+    sheets::T
     depths::Tuple{Vararg{Float64, L}}
 end
 ```
@@ -307,15 +307,6 @@ md"""
 ## Example of 3D interface
 """
 
-# ╔═╡ b4c64a24-8d14-4054-b6d6-ad7952425115
-sheet3d = ComplexExpSheet{2, Float64}(θ, θᵗ, ω, d)
-
-# ╔═╡ 8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
-stack3d = SheetStack(
-	Tuple(sheet3d for i in 1:nsheets),
-	Tuple(gap(i) for i in 1:(nsheets-1)),
-)
-
 # ╔═╡ 4e412a25-1176-4db9-955b-130fd87e734b
 Mmodes = 1 # additional points along y dimension
 
@@ -333,6 +324,9 @@ I₁ʸ = [n == m == modeN ? 1 : 0 for n in 1:Nmodes, m in 1:Mmodes]
 
 # ╔═╡ 213628fd-77a1-4753-bc30-f78c36ddd801
 I₂ʸ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
+
+# ╔═╡ b4c64a24-8d14-4054-b6d6-ad7952425115
+sheet3d = ComplexExpSheet{2, Float64}(θ, θᵗ, ω, d)
 
 # ╔═╡ bf01b9d0-4437-422f-a769-05955a41e2b1
 dims3d = ((Nmodes, L), (Mmodes, L/L))
@@ -361,6 +355,12 @@ begin
 	CO₂ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₂)) .* sol3d.O₂[NMmodes.+(1:Nmodes)], 1))
 	heatmap(sol.modes.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
 end
+
+# ╔═╡ 8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
+stack3d = SheetStack(
+	Tuple(sheet3d for i in 1:nsheets),
+	Tuple(gap(i) for i in 1:(nsheets-1)),
+)
 
 # ╔═╡ 301ad780-83a1-46f3-a027-ef8a4ca198f6
 prob3dstack = DeltaRCWAProblem(stack3d, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
