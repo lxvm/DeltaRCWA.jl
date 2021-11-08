@@ -29,7 +29,16 @@ md"""
 Base.:*(D::Differential, N::Num) = D(N)
 
 # ╔═╡ ba030d89-49d3-43bb-8cde-622aed27303a
-Base.:*(a::Number, x::Symbolics.Equation) = a*x.lhs ~ a*x.rhs
+Base.:*(a::Number, x::Equation) = a*x.lhs ~ a*x.rhs
+
+# ╔═╡ 13d67561-3599-4c53-89ff-6c241fd523be
+Base.:-(x::Equation) = -1x
+
+# ╔═╡ 4dfa8443-ef39-430e-b371-8235f714fa12
+Base.:+(x::Equation, y::Equation) = (x.lhs + y.lhs) ~ (x.rhs + y.rhs)
+
+# ╔═╡ 3de291b2-3935-4752-a132-80dd9c57cfa4
+Base.zero(::Equation) = Num(0) ~ Num(0)
 
 # ╔═╡ e2e236c3-b2ff-4386-827d-74d0786eacaf
 Symbolics.SymbolicUtils.expand(x::Equation) = expand(x.lhs) ~ expand(x.rhs)
@@ -40,17 +49,20 @@ Symbolics.SymbolicUtils.simplify_fractions(x::Equation; kw...) = simplify_fracti
 # ╔═╡ e66bd6f7-9586-40aa-a47e-b41b09a0d84f
 latexify_md(args...; kwargs...) = Markdown.LaTeX(repr(MIME"text/latex"(), Symbolics.latexify(args...; kwargs...)))
 
+# ╔═╡ 82ef72e5-edfc-4b5b-9ac9-6b4a7de16d01
+my_isequal(x::Equation, y::Equation) = isequal(expand.((x.rhs-x.lhs, y.rhs-y.lhs))...)
+
 # ╔═╡ 989216eb-919f-4635-bcd1-6837ab73efc4
 md"""
 ## Stating the curl equations
 
-Faraday's law says
+Faraday's law and Ampère's law (respectively) say
 ```math
--\mu \frac{\partial \bm{H}}{\partial t} = \nabla \times \bm{E}
-```
-and Ampère's law says
-```math
-\epsilon \frac{\partial \bm{E}}{\partial t} = \nabla \times \bm{H}
+\begin{align}
+-\mu \partial_t \bm{H} &= \nabla \times \bm{E}
+\\
+\epsilon \partial_t \bm{E} &= \nabla \times \bm{H}
+\end{align}
 ```
 """
 
@@ -74,7 +86,7 @@ Faraday = -μ*∂ₜ.(H⃗) .~ ∇ × E⃗
 
 # ╔═╡ afa85ef1-6b08-4810-8a51-e91b09e1f0a4
 md"""
-## Solving the curl equations
+## The curl equations in the planewave basis
 
 Consider a plane wave at frequency $\omega$ with wavevector ``\bm{k}``:
 ```math
@@ -99,19 +111,71 @@ use_pw_basis(x) = substitute.(expand_derivatives.(substitute.(
 )), Ref(Dict(pw => 1, i => 1)))
 
 # ╔═╡ 3bb1486a-e748-4e38-bcb2-6755b2871696
-Fourier_Ampère, Fourier_Faraday = use_pw_basis.((Ampère, Faraday))
+Ampère_pw, Faraday_pw = use_pw_basis.((Ampère, Faraday))
 
 # ╔═╡ 5216e525-a5b7-4d4d-b75b-c30a76e77939
-Ez_rule = Dict(E⃗[3] => Symbolics.solve_for(Fourier_Ampère[3], E⃗[3]));
+Ez_rule = Dict(E⃗[3] => Symbolics.solve_for(Ampère_pw[3], E⃗[3]));
 
 # ╔═╡ 62dd1407-a08e-497d-9739-d513eae93224
-Faraday_solution = simplify_fractions.(expand.(substitute.(ω*ϵ*Fourier_Faraday[1:2], Ref(Ez_rule))))
+Faraday_solution = simplify_fractions.(expand.(substitute.(-ω*ϵ*Faraday_pw[1:2], Ref(Ez_rule))))
 
 # ╔═╡ 46e529b9-9089-46c2-bfc4-1f859b9daea7
-Hz_rule = Dict(H⃗[3] => Symbolics.solve_for(Fourier_Faraday[3], H⃗[3]));
+Hz_rule = Dict(H⃗[3] => Symbolics.solve_for(Faraday_pw[3], H⃗[3]));
 
 # ╔═╡ 38df7d76-8d4d-4bc5-b626-11e4dbc67388
-Ampère_solution = simplify_fractions.(expand.(substitute.(ω*μ*Fourier_Ampère[1:2], Ref(Hz_rule))))
+Ampère_solution = simplify_fractions.(expand.(substitute.(ω*μ*Ampère_pw[1:2], Ref(Hz_rule))))
+
+# ╔═╡ 20e938a0-4f0b-4229-bade-e6317517f867
+md"""
+We can verify that this gives the expected results for Faraday's Law and Ampère's Law (respectively) of
+```math
+\begin{align}
+(\bm{R K R}^{-1} - \omega^2 \epsilon \mu \bm I) \tilde{\bm H}_\parallel
+&= \omega \epsilon \bm{R}^{-1} k_z \tilde{\bm E}_\parallel
+\\
+(\bm{R K R}^{-1} - \omega^2 \epsilon \mu \bm I) \tilde{\bm E}_\parallel
+&= \omega \mu \bm R k_z \tilde{\bm H}_\parallel
+\end{align}
+```
+where
+```math
+\bm{R} =
+\begin{pmatrix}
+0 & -1
+\\
+1 & 0
+\end{pmatrix}
+,
+\bm K =
+\begin{pmatrix}
+k_x k_x & k_x k_y
+\\
+k_y k_x & k_y k_y
+\end{pmatrix}
+.
+```
+"""
+
+# ╔═╡ 67485c4e-78fc-4849-991d-ea410c2894a4
+K = k⃗[1:2]*transpose(k⃗[1:2]);
+
+# ╔═╡ b0ebb818-4fc0-4e99-9bd8-942eea32411d
+R = [
+	0 -1;
+	1 0;
+];
+
+# ╔═╡ a3470ead-59ba-47dd-a38a-db416726cf68
+K_term = K - ω^2*ϵ*μ*I;
+
+# ╔═╡ 20ea85fb-9171-449f-a598-85f95c21830b
+my_Faraday = R * K_term * R' * H⃗[1:2] .~ ω*ϵ*k[3]*R'*E⃗[1:2]
+
+# ╔═╡ 37e8ee6e-c762-47e0-8867-2661e7c6ef35
+my_Ampère = R * K_term * R' * E⃗[1:2] .~ ω*μ*k[3]*R*H⃗[1:2]
+
+# ╔═╡ 03c7d185-b0de-417e-96a9-495f45e6058f
+all(my_isequal.(my_Ampère, Ampère_solution)) && all(my_isequal.(my_Faraday, Faraday_solution))
 
 # ╔═╡ 4b9b68bf-99aa-4bcc-b1f2-9cd626b01bd2
 md"""
@@ -123,15 +187,6 @@ md"""
 \\
 \bm{R}^{-1} (\bm{E}_\parallel^2 - \bm{E}_\parallel^1) &= \bm{\sigma}^m (\bm{H}_\parallel^2 + \bm{H}_\parallel^1)/2
 \end{align}
-```
-where
-```math
-\bm{R} =
-\begin{pmatrix}
-0 & -1
-\\
-1 & 0
-\end{pmatrix}
 ```
 """
 
@@ -146,12 +201,6 @@ where
 
 # ╔═╡ 23c72eb8-da61-44d2-8a80-b31dab90ffc8
 H⃗¹, E⃗¹, H⃗², E⃗² = Symbolics.scalarize.([H¹, E¹, H², E²])
-
-# ╔═╡ b0ebb818-4fc0-4e99-9bd8-942eea32411d
-R = [
-	0 -1;
-	1 0;
-]
 
 # ╔═╡ 40a843f5-6a95-4617-83e4-527479b7617c
 GSTCᵉ = ρᵉ * R * (H⃗² - H⃗¹) .~ (E⃗² + E⃗¹)/2
@@ -242,7 +291,7 @@ E⃗_Ampère_rules = Dict(Iterators.flatten([
 ]));
 
 # ╔═╡ 98145011-3c0a-4c9f-aa2f-88f10e670f9f
-GSTC_smatrix = simplify_fractions.(expand.(substitute.(k[3].*GSTC_propagating, Ref(E⃗_Faraday_rules))))
+GSTC_smatrix = expand.(substitute.(k[3].*GSTC_propagating, Ref(E⃗_Faraday_rules)))
 
 # ╔═╡ 789829ca-0cd5-46df-b3c4-467dffea0f85
 md"""
@@ -252,7 +301,7 @@ These final 4 equations contain all the variables and information we need to cal
 the 4 scattered components from the 4 incident components.
 Theoretically, we could do
 ```julia
-Symbolics.solve_for(GSTC_smatrix, [H⃗¹⁻..., H⃗²⁺]))
+Symbolics.solve_for(GSTC_smatrix, [H⃗¹⁻..., H⃗²⁺...]))
 ```
 but this is unnecessary because we will use a matrix solver to do this in DeltaRCWA.
 All we need to do in this notebook is to check that the equations above match what I got for the scattering matrix from my derivation, which I concisely express as
@@ -260,16 +309,16 @@ All we need to do in this notebook is to check that the equations above match wh
 \begin{align}
 &\begin{pmatrix}
 -(\bm K - \omega^2 \epsilon \mu \bm I) \bm R^{-1} \tilde{\bm \rho}^e \bm R
-+ \frac{1}{2} \omega \mu k_z 
++ \frac{1}{2} \omega \mu k_z \bm I
 &
 (\bm K - \omega^2 \epsilon \mu \bm I) \bm R^{-1} \tilde{\bm \rho}^e \bm R
-- \frac{1}{2} \omega \mu k_z 
+- \frac{1}{2} \omega \mu k_z \bm I
 \\
 -(\bm K - \omega^2 \epsilon \mu \bm I) \tilde{\bm \sigma}^m
-+ 2\omega \mu k_z
++ 2\omega \mu k_z \bm I
 &
 -(\bm K - \omega^2 \epsilon \mu \bm I) \tilde{\bm \sigma}^m
-+ 2\omega \mu k_z
++ 2\omega \mu k_z \bm I
 \end{pmatrix}
 \begin{pmatrix}
 \tilde{\bm H}^{(1,-)}_\parallel
@@ -279,16 +328,16 @@ All we need to do in this notebook is to check that the equations above match wh
 \nonumber \\ =
 &\begin{pmatrix}
 (\bm K - \omega^2 \epsilon \mu \bm I) \bm R^{-1} \tilde{\bm \rho}^e \bm R
-+ \frac{1}{2} \omega \mu k_z 
++ \frac{1}{2} \omega \mu k_z \bm I
 &
 -(\bm K - \omega^2 \epsilon \mu \bm I) \bm R^{-1} \tilde{\bm \rho}^e \bm R
-- \frac{1}{2} \omega \mu k_z 
+- \frac{1}{2} \omega \mu k_z \bm I
 \\
 (\bm K - \omega^2 \epsilon \mu \bm I) \tilde{\bm \sigma}^m
-+ 2\omega \mu k_z
++ 2\omega \mu k_z \bm I
 &
 (\bm K - \omega^2 \epsilon \mu \bm I) \tilde{\bm \sigma}^m
-+ 2\omega \mu k_z
++ 2\omega \mu k_z \bm I
 \end{pmatrix}
 \begin{pmatrix}
 \tilde{\bm H}^{(1,+)}_\parallel
@@ -297,22 +346,7 @@ All we need to do in this notebook is to check that the equations above match wh
 \end{pmatrix}
 \end{align}
 ```
-where
-```math
-\bm K =
-\begin{pmatrix}
-k_x k_x & k_x k_y
-\\
-k_y k_x & k_y k_y
-\end{pmatrix}
-```
 """
-
-# ╔═╡ 67485c4e-78fc-4849-991d-ea410c2894a4
-K = [k[i]*k[j] for i in 1:2, j in 1:2];
-
-# ╔═╡ a3470ead-59ba-47dd-a38a-db416726cf68
-K_term = K - ω^2*ϵ*μ*I;
 
 # ╔═╡ f5838af8-bf11-46e3-883e-e229b774d8bf
 ρᵉ_term = K_term * R' * ρᵉ * R;
@@ -333,18 +367,18 @@ RHS = [
 ];
 
 # ╔═╡ b0d8bace-1005-491e-90d1-51cbd0c99150
-my_smatrix = expand.(LHS * vcat(H⃗¹⁻[1:2], H⃗²⁺[1:2]) .~ RHS * vcat(H⃗¹⁺[1:2], H⃗²⁻[1:2]))
+my_smatrix = LHS * vcat(H⃗¹⁻[1:2], H⃗²⁺[1:2]) .~ RHS * vcat(H⃗¹⁺[1:2], H⃗²⁻[1:2])
 
-# ╔═╡ 326b076a-5341-4f8d-bfa0-674328b3d346
-my_smatrix .== GSTC_smatrix
+# ╔═╡ 31659fdb-c809-4374-a29e-f8d28ab80504
+all(my_isequal.(my_smatrix, GSTC_smatrix))
 
 # ╔═╡ fdaa3f48-4cf4-4502-864c-23fef05a6650
 md"""
-Unfortunately I don't think we can trust this check for symbolic equality because functions like `simplify_fractions` did not cancel all instances of `ωϵ/(ωϵ)`, because the terms may be on different sides of the equal sign, because the equations may differ by a multiplicative constant, and mainly because in my calculation I eliminated the electric field using the planewave form of Ampère's law whereas in this symbolic calculation I've used Faraday's law.
+Unfortunately I don't think we can trust checks for symbolic equality because functions like `simplify_fractions` did not cancel all instances of `ωϵ/(ωϵ)`, because the terms may be on different sides of the equal sign, because the equations may differ by a multiplicative constant, and mainly because in my calculation I eliminated the electric field using the planewave form of Ampère's law whereas in this symbolic calculation I've used Faraday's law.
 (The two can be shown to be the same.)
 I leave it to the reader to verify that term by term `my_GSTC` and `H_GSTC` are the same, or since it is a linear function of 4 inputs and 4 outputs, to check that numerically the results from each of the expressions agree on a basis for an 8d space.
 
-For example, to verify the expressions for `E⃗_Faraday` and `E⃗_Ampère` are the same, one should use the rules below (and others like it) to go between them, however this identity is more easily shown by hand than by Symbolics.jl.
+For example, to verify the expressions for `E⃗_Faraday` and `E⃗_Ampère` are the same, one should use the rules below (and others like it) to go between them, however this kind of identity is more easily shown by hand than by Symbolics.jl.
 """
 
 # ╔═╡ 0870f6b3-4db0-4998-b3f9-1f697b261b4b
@@ -992,9 +1026,13 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─75bd4b62-6244-4217-b38c-b171cccef531
 # ╠═bcb4b693-b036-4226-bb44-04650b5e0f82
 # ╠═ba030d89-49d3-43bb-8cde-622aed27303a
+# ╠═13d67561-3599-4c53-89ff-6c241fd523be
+# ╠═4dfa8443-ef39-430e-b371-8235f714fa12
+# ╠═3de291b2-3935-4752-a132-80dd9c57cfa4
 # ╠═e2e236c3-b2ff-4386-827d-74d0786eacaf
 # ╠═c9294f81-4b01-4d04-aa91-1218531b4d78
 # ╠═e66bd6f7-9586-40aa-a47e-b41b09a0d84f
+# ╠═82ef72e5-edfc-4b5b-9ac9-6b4a7de16d01
 # ╟─989216eb-919f-4635-bcd1-6837ab73efc4
 # ╠═c3557c41-d121-4724-936f-fdb4dacea919
 # ╠═5f5a4a19-2617-43aa-a3ff-a6e141741281
@@ -1012,12 +1050,18 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═62dd1407-a08e-497d-9739-d513eae93224
 # ╠═46e529b9-9089-46c2-bfc4-1f859b9daea7
 # ╠═38df7d76-8d4d-4bc5-b626-11e4dbc67388
+# ╟─20e938a0-4f0b-4229-bade-e6317517f867
+# ╠═67485c4e-78fc-4849-991d-ea410c2894a4
+# ╠═b0ebb818-4fc0-4e99-9bd8-942eea32411d
+# ╠═a3470ead-59ba-47dd-a38a-db416726cf68
+# ╠═20ea85fb-9171-449f-a598-85f95c21830b
+# ╠═37e8ee6e-c762-47e0-8867-2661e7c6ef35
+# ╠═03c7d185-b0de-417e-96a9-495f45e6058f
 # ╟─4b9b68bf-99aa-4bcc-b1f2-9cd626b01bd2
 # ╠═8f2e2e12-3585-4159-b2c6-afa39ebdb646
 # ╠═eebb88f9-68e4-49e9-90e7-942bc88a42a7
 # ╠═3e46c6ab-860b-4b3e-829f-3812fe424958
 # ╠═23c72eb8-da61-44d2-8a80-b31dab90ffc8
-# ╠═b0ebb818-4fc0-4e99-9bd8-942eea32411d
 # ╠═40a843f5-6a95-4617-83e4-527479b7617c
 # ╠═a20f965d-e5e8-47e7-ae1d-592fc047853f
 # ╟─0da14cff-952e-4c79-8961-e7d4ea505788
@@ -1034,14 +1078,12 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═83dab0da-f374-4f2b-b0cf-bdb54ae60fb7
 # ╠═98145011-3c0a-4c9f-aa2f-88f10e670f9f
 # ╟─789829ca-0cd5-46df-b3c4-467dffea0f85
-# ╠═67485c4e-78fc-4849-991d-ea410c2894a4
-# ╠═a3470ead-59ba-47dd-a38a-db416726cf68
 # ╠═f5838af8-bf11-46e3-883e-e229b774d8bf
 # ╠═21d4aaf0-a547-4b32-96fc-2d5fa341ec16
 # ╠═79db383f-9710-4628-8c0f-eb220f4b76aa
 # ╠═ba4a3d8c-c50a-4a2a-accf-d7bad62225e4
 # ╠═b0d8bace-1005-491e-90d1-51cbd0c99150
-# ╠═326b076a-5341-4f8d-bfa0-674328b3d346
+# ╠═31659fdb-c809-4374-a29e-f8d28ab80504
 # ╟─fdaa3f48-4cf4-4502-864c-23fef05a6650
 # ╠═0870f6b3-4db0-4998-b3f9-1f697b261b4b
 # ╟─00000000-0000-0000-0000-000000000001
