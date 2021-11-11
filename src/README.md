@@ -3,12 +3,9 @@
 Source code for `DeltaRCWA`
 
 ## Contents
-- `DeltaRCWA.jl`: main module, abstract type definitions, and fallback methods
+- `DeltaRCWA.jl`: main module
 - `DeltaRCWAProblem`: struct definitions for `DeltaRCWAProblem`s,
 `DeltaRCWASolution`s, and the `solve` method for both
-- `interfaces`: an unfinished attempt to implement Fresnel scattering at an interface
-- `Luke_functions`: functions written by Luke for 1D unit cell scattering matrices,
-which is now superseded by the contents of `sheets.jl`
 - `modes.jl`: definition of `PlanewaveModes`, which computes the discretization
 of real space and momentum space
 - `plotting.jl`: plotting recipes for `DeltaRCWASolution` types

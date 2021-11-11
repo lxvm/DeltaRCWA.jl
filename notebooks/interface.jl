@@ -10,8 +10,14 @@ import Pkg
 # ╔═╡ 9c58eb1a-313f-4f89-9958-7f33c7a072d3
 Pkg.activate(".")
 
+# ╔═╡ 301a110f-2fed-45d6-b7ae-b048a3b7209b
+using Revise
+
 # ╔═╡ 55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
 using DeltaRCWA
+
+# ╔═╡ 87c60eb1-495f-424d-b31a-5ab47d0e1879
+using LinearMaps
 
 # ╔═╡ 65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 using Plots
@@ -280,13 +286,13 @@ begin
 end
 
 # ╔═╡ 386f61fa-ab15-40bc-b9be-593622ad42da
-sol = solve(prob, method=smatrixLinearMap)
+sol = solve(prob, T=LinearMap)
 
 # ╔═╡ fe8b8e5a-7de9-4655-ab19-076d58ce0143
 stackprob = DeltaRCWAProblem(stack, dims, ω, pol, I₁, I₂)
 
 # ╔═╡ 20e74b68-23a4-47f1-acea-0b244efd25ae
-stacksol = solve(stackprob, method=smatrix)
+stacksol = solve(stackprob, T=Matrix)
 
 # ╔═╡ 2bc3991d-9626-4464-a532-5ab7705e454b
 md"
@@ -381,7 +387,9 @@ end
 # ╔═╡ Cell order:
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
 # ╠═9c58eb1a-313f-4f89-9958-7f33c7a072d3
+# ╠═301a110f-2fed-45d6-b7ae-b048a3b7209b
 # ╠═55bdcbfc-3e78-4db7-ab05-7a9abe9fd253
+# ╠═87c60eb1-495f-424d-b31a-5ab47d0e1879
 # ╠═65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 # ╟─0a627414-a5af-4fc3-852f-c98105e4d860
 # ╟─f0ca02cb-c7b0-42d8-b598-98499aa09f12

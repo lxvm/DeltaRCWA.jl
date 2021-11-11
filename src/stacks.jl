@@ -9,12 +9,12 @@ struct SheetStack{N, L, T<:Tuple{RCWASheet{N}, Vararg{RCWASheet{N}, L}}} <: RCWA
     depths::Tuple{Vararg{Float64, L}}
 end
 
-for method in (:smatrix, :smatrixBlockMap, :smatrixLinearMap)
-    @eval function $(method)(stack::SheetStack, modes, pol)
-        S = $(method)(stack.sheets[1], modes, pol)
+for method in (:_sMatrix, :_sBlockMatrix, :_sLinearMap, :_sBlockMap)
+    @eval function $method(stack::SheetStack, modes, pol)
+        S = $method(stack.sheets[1], modes, pol)
         for i in eachindex(stack.depths)
-            propagator = $(method)(UniformSlab(stack.depths[i]), modes, pol)
-            S = S ⋆ₛ (propagator ⋆ₛ $(method)(stack.sheets[i+1], modes, pol))
+            propagator = $method(UniformSlab(stack.depths[i]), modes, pol)
+            S = S ⋆ₛ (propagator ⋆ₛ $method(stack.sheets[i+1], modes, pol))
         end
         S
     end

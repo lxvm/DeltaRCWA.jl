@@ -1,4 +1,22 @@
-export ⋆ₛ, ⋆, UniformScalingExchange, J
+export ⋆ₛ#, ⋆, UniformScalingExchange, J
+
+"""
+    ⋆ₛ(A::AbstractBlockMatrix, B::AbstractBlockMatrix)
+
+Return the star product of two S-matrices (2x2 BlockMatrices)
+See:
+https://en.wikipedia.org/wiki/Redheffer_star_product#Connection_to_scattering_matrices
+"""
+function ⋆ₛ(A::AbstractMatrix, B::AbstractMatrix)
+    d = Int(size(A, 1) // 2)
+    @assert size(A) == size(B) == reverse(size(A)) "maps must be endomorphisms"
+    invI_A₂₂B₁₁ = inv(I - A[(d+1):2d, (d+1):2d] * B[1:d, 1:d])
+    invI_B₁₁A₂₂ = inv(I - B[1:d, 1:d] * A[(d+1):2d, (d+1):2d])
+    [
+        A[1:d, 1:d] + A[1:d, (d+1):2d] * invI_B₁₁A₂₂ * B[1:d, 1:d] * A[(d+1):2d, 1:d]        A[1:d, (d+1):2d] * invI_B₁₁A₂₂ * B[1:d, (d+1):2d];
+        B[(d+1):2d, 1:d] * invI_A₂₂B₁₁ * A[(d+1):2d, 1:d]        B[(d+1):2d, (d+1):2d] + B[(d+1):2d, 1:d] * invI_A₂₂B₁₁ * A[(d+1):2d, (d+1):2d] * B[1:d, (d+1):2d];
+    ]
+end
 
 """
     ⋆ₛ(A::AbstractBlockMatrix, B::AbstractBlockMatrix)
@@ -25,7 +43,7 @@ Perform the star product on BlockMaps
 """
 function ⋆ₛ(A::BlockMap, B::BlockMap)::BlockMap
     @assert (2, 2) == A.rows == B.rows "Both maps must be 2x2 block maps"
-    @assert all(has_regular_blocks.([A, B])) "Both maps must have regular block alignment"
+    @assert all(_has_regular_blocks.([A, B])) "Both maps must have regular block alignment"
     A₁₁, A₁₂, A₂₁, A₂₂ = A.maps
     B₁₁, B₁₂, B₂₁, B₂₂ = B.maps
     invI_A₂₂B₁₁ = LinearMap(x -> gmres(I - A₂₂ * B₁₁, x), size(A₂₂, 1), size(B₁₁, 2))
@@ -42,7 +60,7 @@ end
 Returns true if the blocks in the BlockMap are partitioned by a row partition and a
 column partition (i.e. all blocks in each column/row have the same width/height).
 """
-function has_regular_blocks(M::BlockMap)::Bool
+function _has_regular_blocks(M::BlockMap)::Bool
     Ncol = M.rows[1]
     Nrow = length(M.rows)
     all(Ncol == M.rows[i] for i in 1:Nrow) &&
@@ -71,7 +89,7 @@ function ⋆ₛ(A::LinearMap, B::LinearMap)::LinearMap
         # This is slightly optimized to avoid repeating two linear mappings
         y = A * vcat(x₁, fill(zero(eltype(x)), d))
         y₁ = @view y[1:d]
-        y₂ =  gmres(I - A₂₂ * B₁₁, y[(d+1):2d])
+        y₂ = gmres(I - A₂₂ * B₁₁, y[(d+1):2d])
         z = B * vcat(fill(zero(eltype(x)), d), x₂)
         z₁ = gmres(I - B₁₁ * A₂₂, z[1:d])
         z₂ = @view z[(d+1):2d]

@@ -68,16 +68,15 @@ struct DeltaRCWASolution{N, T}
 end
 
 """
-    solve(::DeltaRCWAProblem; method=smatrix)::DeltaRCWASolution
+    solve(::DeltaRCWAProblem; T=Matrix)::DeltaRCWASolution
 
 Evaluates the solution to the problem, with the solver method to be selected by
-the user. `method`s currently implemented are `smatrix` for a dense solver and
-`smatrixBlockMap` and `smatrixLinearMap` for matrix free methods using
-`BlockMap`s and `LinearMap`s respectively.
+the user. `T` can be `Matrix`, `BlockMatrix`, `LinearMap`, or `BlockMap` and
+selects the underlying representation of the scattering matrices.
 """
-function solve(prob::DeltaRCWAProblem{N, T₁, T₂}; method=smatrix)::DeltaRCWASolution{N, T₂} where {N, T₁, T₂}
+function solve(prob::DeltaRCWAProblem{N, T₁, T₂}; T=Matrix)::DeltaRCWASolution{N, T₂} where {N, T₁, T₂}
     structure, modes, pol, I₁, I₂ = prob.structure, prob.modes, prob.pol, prob.I₁, prob.I₂
-    sol = method(structure, modes, pol) * vcat(reshape.([I₁, I₂], :)...)
+    sol = smatrix(T, structure, modes, pol) * vcat(reshape.([I₁, I₂], :)...)
     O₁ = reshape(sol[1:length(I₁)], size(I₁))
     O₂ = reshape(sol[(length(I₁)+1):sum(length.([I₁, I₂]))], size(I₂))
     DeltaRCWASolution(modes, pol, I₁, I₂, O₁, O₂)

@@ -66,41 +66,11 @@ https://doi.org/10.2528/PIERB11083107
 """
 abstract type RCWAStack{N} <: RCWAScatterer{N} end
 
-export smatrix, smatrixBlockMap, smatrixLinearMap
-
-# Not to be confused with SMatrix from StaticArrays.jl!
-# This is a function to get a scattering matrix from a scattering layers
-
-"""
-    smatrix(::RCWAScatterer, modes, pol)
-
-Returns the scattering matrix of a sheet acting on the propagating plane wave modes.
-The default method returns the identity scattering matrix.
-"""
-function smatrix(::RCWAScatterer, modes, pol)::BlockMatrix
-    N = length(modes.kz)
-    id = I(N)
-    zo = (Bool(0) * I)(N)
-    mortar(
-        (zo, id),
-        (id, zo),
-    )
-end
-
-function smatrixBlockMap(::RCWAScatterer, modes, pol)::BlockMap
-    N = length(modes.kz)
-    id = LinearMap(I(N))
-    zo = LinearMap((Bool(0) * I)(N))
-    [
-        zo  id;
-        id  zo
-    ]
-end
-
-function smatrixLinearMap(::RCWAScatterer, modes, pol)::LinearMap
-    N = length(modes.kz)
-    LinearMap(x::AbstractVector -> vcat(x[(N+1):2N], x[1:N]), 2N)
-end
+export smatrix
+smatrix(::Type{Matrix}, args...) = _sMatrix(args...)
+smatrix(::Type{BlockMatrix}, args...) = _sBlockMatrix(args...)
+smatrix(::Type{LinearMap}, args...) = _sLinearMap(args...)
+smatrix(::Type{BlockMap}, args...) = _sBlockMap(args...)
 
 export UniformMedium, Vacuum
 

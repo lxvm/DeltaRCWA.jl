@@ -51,13 +51,18 @@ end
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function smatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sMatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     n = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
     Z̃ˣˣ, Z̃ʸʸ = diagFT.((Zˣˣ, Zʸʸ))
     A, B = get_1D_uncoupled_GSTC_matrices(Z, Z̃ˣˣ, Z̃ʸʸ, Diagonal(modes.kz), ωη)
-    BlockMatrix(A\B, [n, n], [n, n])
+    A\B
+end
+
+function _sBlockMatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+    n = length(modes.kz)
+    BlockMatrix(_sMatrix(sheet, modes, pol), [n, n], [n, n])
 end
 
 @generated function get_1D_uncoupled_GSTC_params(Z::ImpedanceStyle, sheet, modes, pol)
@@ -117,7 +122,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function smatrixLinearMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sLinearMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
     Z̃ˣˣ = ifft ∘ (x -> Diagonal(Zˣˣ) * x) ∘ fft
@@ -163,7 +168,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function smatrixBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     N = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
@@ -190,10 +195,15 @@ end
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function smatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
+function _sMatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
     n = length(modes.kz)
     A, B = _2Dsheetsmatrix(sheet, modes)
-    BlockMatrix(A\B, [2n, 2n], [2n, 2n])
+    A\B
+end
+
+function _sBlockMatrix(sheet::RCWASheet{2}, modes, pol::CoupledPolarization)
+    n = length(modes.kz)
+    BlockMatrix(_sMatrix(sheet, modes, pol), [2n, 2n], [2n, 2n])
 end
 
 "Return the variables needed to construct the dense scattering matrix"
@@ -265,9 +275,3 @@ function _build_2D_GSTC_smatrix(ρ̃_term, σ̃_term, kz_term)
     ]
     A, B
 end
-
-function smatrixLinearMap end
-function _2DsheetsmatrixLinearMap end
-
-function smatrixBlockMap end
-function _2DsheetsmatrixBlockMap end
