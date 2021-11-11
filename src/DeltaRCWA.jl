@@ -146,7 +146,6 @@ end
 include("modes.jl")
 include("slabs.jl")
 include("sheets.jl")
-include("interfaces.jl")
 include("stacks.jl")
 include("DeltaRCWAProblem.jl")
 include("star_products.jl")
