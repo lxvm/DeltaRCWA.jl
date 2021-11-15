@@ -27,7 +27,7 @@ md"
 ## Using `DeltaRCWA`'s interface
 These are the stages to using the solver, which needs this data
 ```julia
-struct DeltaRCWAProblem{N, T₁<:RCWAScatterer{N}, T₂}
+struct DeltaRCWAProblem{N, T₁, T₂}
     structure::T₁
     modes::PlanewaveModes{T₂, N}
     pol::AbstractPolarization
@@ -199,14 +199,13 @@ stack = SheetStack(
 # ╔═╡ af78faae-2d92-4035-81d5-9856d662e876
 md"
 #### Methods that a `RCWASheet` implements
-Any `RCWASheet` may implement the following 12 methods
-`σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ`
-one for each component of the electric and magnetic conductivity/resistivity matrices.
-(We do not provide `ρₘ` because `ρₘ=0` due to free magnetic charge is non-physical.)
+Any `RCWASheet` may implement the following 16 methods
+$(vec([Symbol(R, s, i, j) for j in (:ˣ, :ʸ), i in (:ˣ, :ʸ), s in (:ₑ, :ₘ), R in (:Z, :Y)]))
+one for each component of the electric and magnetic admittance/impedance matrices.
 These methods return the value of that admittance/impedance component at points in the
 unit cell, thereby realizing the metasurface geometry from the parameters.
 By default/fallback, these methods all return zero
-(thus are either perfect insulators, `σ`, or are perfect conductors, `ρ`)
+(thus are either perfect insulators, `Y=0`, or are perfect conductors, `Z=0`)
 unless you
 [extend `DeltaRCWA`'s method](https://docs.julialang.org/en/v1/manual/modules/#using-and-import-with-specific-identifiers,-and-adding-methods)
 to dispatch on your type.
@@ -218,35 +217,34 @@ See the examples/documentation/help for the method signature
 "
 
 # ╔═╡ 030ef40d-043c-4e23-9fc4-7a5321cf67f9
-function DeltaRCWA.ρₑˣˣ(sheet::ComplexExpSheet, x⃗::Tuple)
+function DeltaRCWA.Zₑˣˣ(sheet::ComplexExpSheet, x⃗::Tuple)
 	-0.5sin(sheet.θ)*(1-exp(1im*sheet.k*sheet.d*x⃗[1]))
 end
 
 # ╔═╡ 6046fe03-6c7f-4497-a1e1-1368ab043489
-function DeltaRCWA.σₘʸʸ(sheet::ComplexExpSheet, x⃗::Tuple)
+function DeltaRCWA.Yₘʸʸ(sheet::ComplexExpSheet, x⃗::Tuple)
 	-2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x⃗[1]))
 end
 
 # ╔═╡ f2332c95-e784-41c6-a8b9-96df60bb58a6
 md"
-#### Impedance style
-To choose between `ρₑ` or `σₑ`, you specify an `ImpedanceStyle` for your types:
-- `Impedanceρₑσₘ` (the default for all `RCWASheet`s)
-- `Impedanceσₑσₘ` (optionally available for `RCWASheet{T, 1}`)
-which lets you choose whether you define the components of the conductivity matrix σₑ
-or its inverse so that you can solve a problem with either a perfect electric
-conductor or a perfect electric insulator.
-This is a trait for your type.
+#### Response style
+To choose between specifying material response parameters `Z` or `Y` (where one is the inverse of the other), you specify traits called `ElectricResponseStyle` and `MagneticResponseStyle` for your types which may return `Impedance()` or `Admittance()`.
+The default values are
+```julia
+ElectricResponseStyle(::Type{<:RCWASheet}) = Impedance()
+MagneticResponseStyle(::Type{<:RCWASheet}) = Admittance()
+```
+This lets you choose how to specify the material parameters (useful if one has a value of 0 (i.e. the other diverges)) exactly to prevent singular matrices.
 
-Uncomment and run the code below to reproduce the same example with the other
-impedance style.
+Uncomment and run the code below to reproduce the same example with a different `ElectricResponseStyle`.
 "
 
 # ╔═╡ bf0fad44-d478-48c6-9c05-33cd6bf61a7b
 # begin
-# 	# DeltaRCWA.ImpedanceStyle(::ComplexExpSheet) = Impedanceσₑσₘ()
-# 	function DeltaRCWA.σₑˣˣ(sheet::ComplexExpSheet, x⃗)
-# 		# this is 1 ./ ρₑˣˣ except with a small perturbation to be nonsingular
+# 	# DeltaRCWA.ElectricResponseStyle(::Type{ComplexExpSheet}) = Admittance()
+# 	function DeltaRCWA.Yₑˣˣ(sheet::ComplexExpSheet, x⃗)
+# 		# this is 1 ./ Zₑˣˣ except with a small perturbation to be nonsingular
 # 		2 / (-sin(sheet.θ)*(1e-10 + 1-exp(1im*sheet.k*sheet.d*x⃗[1])))
 # 	end
 # end
@@ -263,16 +261,16 @@ prob = DeltaRCWAProblem(sheet, dims, ω, pol, I₁, I₂)
 # ╔═╡ 786a6947-7082-4902-a625-8be4bd3e30e7
 begin
 	### Display the magnetic conductivity / electric resistivity  along sheet
-	ρ = [-0.5sin(sheet.θ)*(1-exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
-	σ = [-2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
-	plot(prob.modes.x⃗[1],  real.(ρ), label="Re(ρₑˣˣ)")
-	plot!(prob.modes.x⃗[1], imag.(ρ), label="Im(ρₑˣˣ)", ls=:dash)
-	plot!(prob.modes.x⃗[1], real.(σ), label="Re(σₘʸʸ)")
-	plot!(prob.modes.x⃗[1], imag.(σ), label="Im(σₘʸʸ)", ls=:dash)
+	Z = [-0.5sin(sheet.θ)*(1-exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
+	Y = [-2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
+	plot(prob.modes.x⃗[1],  real.(Z), label="Re(Zₑˣˣ)")
+	plot!(prob.modes.x⃗[1], imag.(Z), label="Im(Zₑˣˣ)", ls=:dash)
+	plot!(prob.modes.x⃗[1], real.(Y), label="Re(Yₘʸʸ)")
+	plot!(prob.modes.x⃗[1], imag.(Y), label="Im(Yₘʸʸ)", ls=:dash)
 end
 
 # ╔═╡ 386f61fa-ab15-40bc-b9be-593622ad42da
-sol = solve(prob, T=LinearMap)
+sol = solve(prob)
 
 # ╔═╡ fe8b8e5a-7de9-4655-ab19-076d58ce0143
 stackprob = DeltaRCWAProblem(stack, dims, ω, pol, I₁, I₂)

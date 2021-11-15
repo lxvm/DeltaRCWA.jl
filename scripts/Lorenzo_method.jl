@@ -1,12 +1,12 @@
 import DeltaRCWA
 
-struct FunctionSheet <: DeltaRCWA.RCWASheet{1}
-    η
-    μ
+struct FunctionSheet{A <: Function, B <: Function} <: DeltaRCWA.RCWASheet
+    η::A
+    μ::B
 end
 
-DeltaRCWA.ρₑˣˣ(sheet::FunctionSheet, x) = sheet.μ(x)
-DeltaRCWA.σₘʸʸ(sheet::FunctionSheet, x) = sheet.η(x)
+DeltaRCWA.Zₑˣˣ(sheet::FunctionSheet, x) = sheet.μ(x)
+DeltaRCWA.Yₘʸʸ(sheet::FunctionSheet, x) = sheet.η(x)
 
 """
     compute_DeltaRCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)

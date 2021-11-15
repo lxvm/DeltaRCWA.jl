@@ -1,75 +1,24 @@
-# Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
-export
-    RCWASheet,
-    ImpedanceStyle,
-    Impedanceρₑσₘ,
-    Impedanceσₑσₘ,
-    σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
-
-"""
-    RCWASheet
-
-An abstract type to dispatch methods for 2D structures embedded in a homogenous
-medium modelled with Generalized Sheet Transition Conditions (GSTCs).
-See:
-Kuester, Edward et al.
-"Averaged transition conditions for electromagnetic fields at a metafilm"
-https://doi.org/10.1109/TAP.2003.817560
-"""
-abstract type RCWASheet end
-
-abstract type ImpedanceStyle end
-
-"""
-    Impedanceρₑσₘ()
-
-Subtype of `ImpedanceStyle` to describe sheets that implement methods returning
-the components of ρₑ and of σₘ, which performs better when there is a perfect
-electric conductor and no electric insulator.
-"""
-struct Impedanceρₑσₘ <: ImpedanceStyle end
-
-"""
-    Impedanceσₑσₘ()
-
-Subtype of `ImpedanceStyle` to describe sheets that implement methods returning
-the components of σₑ and of σₘ, which performs better when there is a perfect
-electric insulator and no electric conductor.
-"""
-struct Impedanceσₑσₘ <: ImpedanceStyle end
-
-"""
-    ImpedanceStyle(::RCWASheet)
-
-Based on IndexStyle in Base, provides an interface for user-defined sheets to
-choose between a formulation of the same problem in terms of their preferred
-conductivity parameters so long as they extend this method to choose a concrete
-impedance style for their type.
-"""
-ImpedanceStyle(::RCWASheet) = Impedanceρₑσₘ()
-
-# Set default admittance/impedance parameters
-# insulating
-for σ in (:σₑˣˣ, :σₑˣʸ, :σₑʸˣ, :σₑʸʸ, :σₘˣˣ, :σₘˣʸ, :σₘʸˣ, :σₘʸʸ)
-    @eval $(σ)(::RCWASheet, x⃗) = zero(eltype(x⃗))
-end
-# conducting
-for ρ in (:ρₑˣˣ, :ρₑˣʸ, :ρₑʸˣ, :ρₑʸʸ)
-    @eval $(ρ)(::RCWASheet, x⃗) = zero(eltype(x⃗))
+# Define default behavior of impedance/admittance parameters
+for R in (:Z, :Y), s in (:ₑ, :ₘ), i in (:ˣ, :ʸ), j in (:ˣ, :ʸ)
+    @eval begin
+        export $(Symbol(R, s, i, j))
+        $(Symbol(R, s, i, j))(::RCWASheet, x⃗) = zero(eltype(x⃗))
+    end
 end
 
 """
-    smatrix(sheet::RCWASheet{1}, modes, ::UncoupledPolarization)
+    _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, ::UncoupledPolarization)
 
-Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
+Returns a 2x2 Matrix for the scattering of modes specific to the TE or TM 
 polarization
 """
 function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     n = length(modes.kz)
-    Z = ImpedanceStyle(sheet)
-    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
-    Z̃ˣˣ, Z̃ʸʸ = diagFT.((Zˣˣ, Zʸʸ))
-    A, B = get_1D_uncoupled_GSTC_matrices(Z, Z̃ˣˣ, Z̃ʸʸ, Diagonal(modes.kz), ωη)
+    Rₑ = ElectricResponseStyle(sheet)
+    Rₘ = MagneticResponseStyle(sheet)
+    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
+    R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
+    A, B = _get_1D_uncoupled_GSTC_matrices(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(modes.kz), ωη)
     A\B
 end
 
@@ -78,22 +27,19 @@ function _sBlockMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, N}, pol) where
     BlockMatrix(_sMatrix(sheet, modes, pol), [N*n, N*n], [N*n, N*n])
 end
 
-@generated function get_1D_uncoupled_GSTC_params(Z::ImpedanceStyle, sheet, modes, pol)
-    if Z === Impedanceρₑσₘ
-        Zˣˣ, Zʸʸ = :ρ, :σ
-    else # Z === Impedanceσₑσₘ
-        Zˣˣ, Zʸʸ = :σ, :σ
-    end
+@generated function _get_1D_uncoupled_GSTC_params(Rₑ::ResponseStyle, Rₘ::ResponseStyle, sheet, modes, pol)
+    Rˣ = Rₑ === Impedance ? :Z : :Y
+    Rʸ = Rₘ === Impedance ? :Z : :Y
     if pol === TE
-        η, xx, yy = :μ, :ₘ, :ₑ
+        η, sˣ, sʸ = :μ, :ₘ, :ₑ
     else # pol === TM
-        η, xx, yy = :ϵ, :ₑ, :ₘ
+        η, sˣ, sʸ = :ϵ, :ₑ, :ₘ
     end
     quote
-        Zx = $(Symbol(Zˣˣ, xx, :ˣˣ)).(Ref(sheet), Iterators.product(modes.x⃗...))
-        Zy = $(Symbol(Zʸʸ, yy, :ʸʸ)).(Ref(sheet), Iterators.product(modes.x⃗...))
+        Rˣˣ = $(Symbol(Rˣ, sˣ, :ˣˣ)).(Ref(sheet), Iterators.product(modes.x⃗...))
+        Rʸʸ = $(Symbol(Rʸ, sʸ, :ʸʸ)).(Ref(sheet), Iterators.product(modes.x⃗...))
         ωη = modes.ω * modes.M.$(η)
-        Zx, Zy, ωη
+        Rˣˣ, Rʸʸ, ωη
     end
 end
 
@@ -111,13 +57,12 @@ function diagFT(A::AbstractArray{<:Number, ndim}) where ndim
     reshape(Ã, (n, n))
 end
 
-function get_1D_uncoupled_GSTC_matrices(::Impedanceρₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
-    _get_1D_uncoupled_GSTC_matrices(I, Z̃ˣˣ, I, Z̃ʸʸ, kz, ωη)
+@generated function _get_1D_uncoupled_GSTC_matrices(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
+    (A, B) = Rₑ === Impedance ? (:I, :R̃ˣˣ) : (:R̃ˣˣ, :I)
+    (C, D) = Rₘ === Impedance ? (:R̃ʸʸ, :I) : (:I, :R̃ʸʸ)
+    :(__get_1D_uncoupled_GSTC_matrices($A, $B, $C, $D, kz, ωη))
 end
-function get_1D_uncoupled_GSTC_matrices(::Impedanceσₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
-    _get_1D_uncoupled_GSTC_matrices(Z̃ˣˣ, I, I, Z̃ʸʸ, kz, ωη)
-end
-function _get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
+function __get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
     A = [
         (xxwithkz * kz + 2ωη * xxother)   (-xxwithkz * kz - 2ωη * xxother);
         (yywithkz * kz + 0.5ωη * yyother) (yywithkz * kz + 0.5ωη * yyother)
@@ -130,27 +75,28 @@ function _get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, k
 end
 
 """
-    smatrixLinearMap(sheet, modes, pol)
+    _sLinearMap(sheet, modes, pol)
 
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
 function _sLinearMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
-    Z = ImpedanceStyle(sheet)
-    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
-    Z̃ˣˣ = ifft ∘ (x -> Diagonal(Zˣˣ) * x) ∘ fft
-    Z̃ʸʸ = ifft ∘ (x -> Diagonal(Zʸʸ) * x) ∘ fft
-    A, B = get_1D_uncoupled_GSTC_LinearMaps(Z, Z̃ˣˣ, Z̃ʸʸ, Diagonal(modes.kz), ωη)
+    Rₑ = ElectricResponseStyle(sheet)
+    Rₘ = MagneticResponseStyle(sheet)
+    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
+    R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
+    R̃ˣˣ = ifft ∘ (x -> Diagonal(Rˣˣ) * x) ∘ fft
+    R̃ʸʸ = ifft ∘ (x -> Diagonal(Rʸʸ) * x) ∘ fft
+    A, B = _get_1D_uncoupled_GSTC_LinearMaps(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(modes.kz), ωη)
     LinearMap(x -> gmres(A, B(x)), 2length(modes.kz))
 end
 
-function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceρₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
-    _get_1D_uncoupled_GSTC_LinearMaps(x -> x, Z̃ˣˣ, x -> x, Z̃ʸʸ, kz, ωη)
+@generated function _get_1D_uncoupled_GSTC_LinearMaps(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
+    (A, B) = Rₑ === Impedance ? (:identity, :R̃ˣˣ) : (:R̃ˣˣ, :identity)
+    (C, D) = Rₘ === Impedance ? (:R̃ʸʸ, :identity) : (:identity, :R̃ʸʸ)
+    :(__get_1D_uncoupled_GSTC_LinearMaps($A, $B, $C, $D, kz, ωη))
 end
-function get_1D_uncoupled_GSTC_LinearMaps(::Impedanceσₑσₘ, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
-    _get_1D_uncoupled_GSTC_LinearMaps(Z̃ˣˣ, x -> x, x -> x, Z̃ʸʸ, kz, ωη)
-end     
-function _get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
+function __get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
     N = size(kz, 1)
     A = LinearMap(2N) do x
         I₁ = x[1:N]
@@ -183,13 +129,14 @@ scattering matrix of a RCWASheet in a matrix-free fashion.
 """
 function _sBlockMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     N = length(modes.kz)
-    Z = ImpedanceStyle(sheet)
-    Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
+    Rₑ = ElectricResponseStyle(sheet)
+    Rₘ = MagneticResponseStyle(sheet)
+    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
     _fft = LinearMap{ComplexF64}(fft, ifft, N)
-    Z̃ˣˣ = _fft' * LinearMap(Diagonal(Zˣˣ)) * _fft
-    Z̃ʸʸ = _fft' * LinearMap(Diagonal(Zʸʸ)) * _fft
+    R̃ˣˣ = _fft' * LinearMap(Diagonal(Rˣˣ)) * _fft
+    R̃ʸʸ = _fft' * LinearMap(Diagonal(Rʸʸ)) * _fft
     kz = LinearMap(Diagonal(modes.kz))
-    A, B = get_1D_uncoupled_GSTC_matrices(Z, Z̃ˣˣ, Z̃ʸʸ, kz, ωη)
+    A, B = _get_1D_uncoupled_GSTC_matrices(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, kz, ωη)
     # Build the matrix inversion block-by-block
     B₁₁, B₁₂, B₂₁, B₂₂ = B.maps
     invA_B₁₁ = LinearMap(x -> gmres(A, vcat(B₁₁ * x, B₂₁ * x))[1:N], N)
@@ -225,17 +172,17 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
     )
     ωμ = modes.ω * modes.M.μ
     k⃗² = modes.ω * modes.M.ϵ * ωμ
-    ρₑ = (
-        xx = ρₑˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        xy = ρₑˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yx = ρₑʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yy = ρₑʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+    Zₑ = (
+        xx = Zₑˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        xy = Zₑˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yx = Zₑʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yy = Zₑʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
     )
-    σₘ = (
-        xx = σₘˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        xy = σₘˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yx = σₘʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yy = σₘʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+    Yₘ = (
+        xx = Yₘˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        xy = Yₘˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yx = Yₘʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
+        yy = Yₘʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
     )
     K = (
         xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
@@ -243,11 +190,11 @@ function _get_params_2Dsheetsmatrix(sheet, modes)
         # yx = [k⃗[2] * k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
         yy = [k⃗[2] .* k⃗[2] for k⃗ in Iterators.product(modes.k⃗...)],
     )
-    ρₑ, σₘ, R, K, modes.kz, k⃗², ωμ
+    Zₑ, Yₘ, R, K, modes.kz, k⃗², ωμ
 end
 
 function _2Dsheetsmatrix(sheet, modes)
-    ρₑ, σₘ, R, K, kz, k⃗², ωμ = _get_params_2Dsheetsmatrix(sheet, modes)
+    Zₑ, Yₘ, R, K, kz, k⃗², ωμ = _get_params_2Dsheetsmatrix(sheet, modes)
     K_term = mortar(
         Diagonal.(reshape.((K.xx .- k⃗², K.xy), :)),
         Diagonal.(reshape.((K.xy, K.yy .- k⃗²), :)),
@@ -257,29 +204,29 @@ function _2Dsheetsmatrix(sheet, modes)
         (R.yx, R.yy),
     )
     # need to do Fourier transform of each block
-    ρ̃_term = mortar(
-        diagFT.((ρₑ.xx, ρₑ.xy)),
-        diagFT.((ρₑ.yx, ρₑ.yy)),
+    Z̃ₑ_term = mortar(
+        diagFT.((Zₑ.xx, Zₑ.xy)),
+        diagFT.((Zₑ.yx, Zₑ.yy)),
     )
-    ρ̃_term = Matrix(K_term * transpose(R_term) * ρ̃_term * R_term)
-    σ̃_term = mortar(
-        diagFT.((σₘ.xx, σₘ.xy)),
-        diagFT.((σₘ.yx, σₘ.yy)),
+    Z̃ₑ_term = Matrix(K_term * transpose(R_term) * Z̃ₑ_term * R_term)
+    Ỹₘ_term = mortar(
+        diagFT.((Yₘ.xx, Yₘ.xy)),
+        diagFT.((Yₘ.yx, Yₘ.yy)),
     )
-    σ̃_term = Matrix(K_term * σ̃_term)
-    # return ρ̃_term, ρₑ
+    Ỹₘ_term = Matrix(K_term * Ỹₘ_term)
+    # return Z̃ₑ_term, Zₑ
     kz_term = ωμ * Diagonal(vcat(reshape.((kz, kz), :)...))
-    _build_2D_GSTC_smatrix(ρ̃_term, σ̃_term, kz_term)
+    _build_2D_GSTC_smatrix(Z̃ₑ_term, Ỹₘ_term, kz_term)
 end
 
-function _build_2D_GSTC_smatrix(ρ̃_term, σ̃_term, kz_term)
+function _build_2D_GSTC_smatrix(Z̃ₑ_term, Ỹₘ_term, kz_term)
     A = [
-        -ρ̃_term + 0.5*kz_term   ρ̃_term - 0.5*kz_term;
-        -σ̃_term + 2*kz_term     -σ̃_term + 2*kz_term
+        -Z̃ₑ_term + 0.5*kz_term   Z̃ₑ_term - 0.5*kz_term;
+        -Ỹₘ_term + 2*kz_term     -Ỹₘ_term + 2*kz_term
     ]
     B = [
-        ρ̃_term + 0.5*kz_term   -ρ̃_term - 0.5*kz_term;
-        σ̃_term + 2*kz_term     σ̃_term - 2*kz_term
+        Z̃ₑ_term + 0.5*kz_term   -Z̃ₑ_term - 0.5*kz_term;
+        Ỹₘ_term + 2*kz_term     Ỹₘ_term - 2*kz_term
     ]
     A, B
 end

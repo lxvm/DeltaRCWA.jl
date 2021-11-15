@@ -17,14 +17,33 @@ using KrylovKit: linsolve
 using IterativeSolvers: gmres
 using LinearMaps: LinearMap, BlockMap
 
+export RCWASheet
+"""
+    RCWASheet
+
+An abstract type to dispatch methods for 2D structures embedded in a homogenous
+medium modelled with Generalized Sheet Transition Conditions (GSTCs).
+See:
+Kuester, Edward et al.
+"Averaged transition conditions for electromagnetic fields at a metafilm"
+https://doi.org/10.1109/TAP.2003.817560
+"""
+abstract type RCWASheet end
+
 export smatrix
+"""
+    smatrix([T=Matrix], scatterer, modes, pol)
+
+Form the scattering matrix of a given return type `T` for the specified
+scatterers, incident modes, and polarizations.
+"""
+smatrix(args...) = smatrix(Matrix, args...)
 smatrix(::Type{Matrix}, args...) = _sMatrix(args...)
 smatrix(::Type{BlockMatrix}, args...) = _sBlockMatrix(args...)
 smatrix(::Type{LinearMap}, args...) = _sLinearMap(args...)
 smatrix(::Type{BlockMap}, args...) = _sBlockMap(args...)
 
 export UniformMedium, Vacuum
-
 """
     UniformMedium{T <: Number}(ϵ::T, μ::T)
 
@@ -35,7 +54,6 @@ struct UniformMedium{T <: Number}
     ϵ::T
     μ::T
 end
-
 Vacuum(x=Bool) = UniformMedium(one(x), one(x))
 
 export TE, TM, Coupled
@@ -65,6 +83,7 @@ function enforce_N_pol(N::Integer, pol::AbstractPolarization)
 end
 
 include("modes.jl")
+include("responses.jl")
 include("slabs.jl")
 include("sheets.jl")
 include("stacks.jl")
