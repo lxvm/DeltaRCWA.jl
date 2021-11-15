@@ -134,17 +134,17 @@ I₂ = zeros(Nmodes)
 md"
 ### Defining the scattering structure
 
-#### Creating a `RCWASheet`
+#### Creating a `Sheet`
 To create metasurface parameters for the unit cell of a sheet-like photonic crystal, create a struct that is a subtype
-of `RCWASheet` and store all the geometric/metasurface parameters you need in
+of `Sheet` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
 # ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-struct TrivialSheet <: RCWASheet end
+struct TrivialSheet <: Sheet end
 
 # ╔═╡ a4e6f529-b914-4445-a6ee-7a316e259b9e
-struct ComplexExpSheet{T} <: RCWASheet
+struct ComplexExpSheet{T} <: Sheet
     θ::T # incidence angle
     θᵗ::T # transmission angle
 	k::T # wavenumber
@@ -177,7 +177,7 @@ Create a Tuple of the sheets you want to scatter off of and create a second Tupl
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
 ```julia
-struct SheetStack{L, T<:Tuple{RCWASheet, Vararg{RCWASheet, L}}}
+struct SheetStack{L, T<:Tuple{Sheet, Vararg{Sheet, L}}}
     sheets::T
     depths::Tuple{Vararg{Float64, L}}
 end

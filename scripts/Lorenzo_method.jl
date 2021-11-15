@@ -1,6 +1,6 @@
 import DeltaRCWA
 
-struct FunctionSheet{A <: Function, B <: Function} <: DeltaRCWA.RCWASheet
+struct FunctionSheet{A <: Function, B <: Function} <: DeltaRCWA.Sheet
     η::A
     μ::B
 end

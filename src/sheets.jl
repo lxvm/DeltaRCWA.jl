@@ -2,17 +2,17 @@
 for R in (:Z, :Y), s in (:ₑ, :ₘ), i in (:ˣ, :ʸ), j in (:ˣ, :ʸ)
     @eval begin
         export $(Symbol(R, s, i, j))
-        $(Symbol(R, s, i, j))(::RCWASheet, x⃗) = zero(eltype(x⃗))
+        $(Symbol(R, s, i, j))(::Sheet, x⃗) = zero(eltype(x⃗))
     end
 end
 
 """
-    _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, ::UncoupledPolarization)
+    _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, ::UncoupledPolarization)
 
 Returns a 2x2 Matrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
+function _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     n = length(modes.kz)
     Rₑ = ElectricResponseStyle(sheet)
     Rₘ = MagneticResponseStyle(sheet)
@@ -22,7 +22,7 @@ function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::Un
     A\B
 end
 
-function _sBlockMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, N}, pol) where {T, N}
+function _sBlockMatrix(sheet::Sheet, modes::PlanewaveModes{T, N}, pol) where {T, N}
     n = length(modes.kz)
     BlockMatrix(_sMatrix(sheet, modes, pol), [N*n, N*n], [N*n, N*n])
 end
@@ -78,9 +78,9 @@ end
     _sLinearMap(sheet, modes, pol)
 
 Return a function that will compute the matrix-vector product with the
-scattering matrix of a RCWASheet in a matrix-free fashion.
+scattering matrix of a Sheet in a matrix-free fashion.
 """
-function _sLinearMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
+function _sLinearMap(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     Rₑ = ElectricResponseStyle(sheet)
     Rₘ = MagneticResponseStyle(sheet)
     Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
@@ -125,9 +125,9 @@ end
     smatrixBlockMap(sheet, modes, pol)
 
 Return a function that will compute the matrix-vector product with the
-scattering matrix of a RCWASheet in a matrix-free fashion.
+scattering matrix of a Sheet in a matrix-free fashion.
 """
-function _sBlockMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
+function _sBlockMap(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     N = length(modes.kz)
     Rₑ = ElectricResponseStyle(sheet)
     Rₘ = MagneticResponseStyle(sheet)
@@ -155,7 +155,7 @@ end
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
+function _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
     n = length(modes.kz)
     A, B = _2Dsheetsmatrix(sheet, modes)
     A\B

@@ -17,9 +17,9 @@ using KrylovKit: linsolve
 using IterativeSolvers: gmres
 using LinearMaps: LinearMap, BlockMap
 
-export RCWASheet
+export Sheet
 """
-    RCWASheet
+    Sheet
 
 An abstract type to dispatch methods for 2D structures embedded in a homogenous
 medium modelled with Generalized Sheet Transition Conditions (GSTCs).
@@ -28,7 +28,7 @@ Kuester, Edward et al.
 "Averaged transition conditions for electromagnetic fields at a metafilm"
 https://doi.org/10.1109/TAP.2003.817560
 """
-abstract type RCWASheet end
+abstract type Sheet end
 
 export smatrix
 """

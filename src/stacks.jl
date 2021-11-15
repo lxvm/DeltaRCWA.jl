@@ -4,7 +4,7 @@ export SheetStack
 A simple tuple of sheets with a complementary tuple of the spacings between
 sheets in a UniformMedium
 """
-struct SheetStack{L, T<:Tuple{RCWASheet, Vararg{RCWASheet, L}}}
+struct SheetStack{L, T<:Tuple{Sheet, Vararg{Sheet, L}}}
     sheets::T
     depths::Tuple{Vararg{Float64, L}}
 end

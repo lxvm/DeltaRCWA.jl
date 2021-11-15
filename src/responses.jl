@@ -25,12 +25,12 @@ struct Admittance <: ResponseStyle end
     ElectricResponseStyle(sheet)
     ElectricResponseStyle(typeof(sheet))
 """
-ElectricResponseStyle(sheet::RCWASheet) = ElectricResponseStyle(typeof(sheet))
-ElectricResponseStyle(::Type{<:RCWASheet}) = Impedance()
+ElectricResponseStyle(sheet::Sheet) = ElectricResponseStyle(typeof(sheet))
+ElectricResponseStyle(::Type{<:Sheet}) = Impedance()
 
 """
     MagneticResponseStyle(sheet)
     MagneticResponseStyle(typeof(sheet))
 """
-MagneticResponseStyle(sheet::RCWASheet) = MagneticResponseStyle(typeof(sheet))
-MagneticResponseStyle(::Type{<:RCWASheet}) = Admittance()
+MagneticResponseStyle(sheet::Sheet) = MagneticResponseStyle(typeof(sheet))
+MagneticResponseStyle(::Type{<:Sheet}) = Admittance()
