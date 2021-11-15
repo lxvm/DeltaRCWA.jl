@@ -1,9 +1,22 @@
 # Defines the trivial fall-back methods that should be implemented by `RCWASheet`s
 export
+    RCWASheet,
     ImpedanceStyle,
     Impedanceρₑσₘ,
     Impedanceσₑσₘ,
     σₑˣˣ, σₑˣʸ, σₑʸˣ, σₑʸʸ, σₘˣˣ, σₘˣʸ, σₘʸˣ, σₘʸʸ, ρₑˣˣ, ρₑˣʸ, ρₑʸˣ, ρₑʸʸ
+
+"""
+    RCWASheet
+
+An abstract type to dispatch methods for 2D structures embedded in a homogenous
+medium modelled with Generalized Sheet Transition Conditions (GSTCs).
+See:
+Kuester, Edward et al.
+"Averaged transition conditions for electromagnetic fields at a metafilm"
+https://doi.org/10.1109/TAP.2003.817560
+"""
+abstract type RCWASheet end
 
 abstract type ImpedanceStyle end
 
@@ -51,7 +64,7 @@ end
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function _sMatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     n = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
@@ -60,9 +73,9 @@ function _sMatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
     A\B
 end
 
-function _sBlockMatrix(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sBlockMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, N}, pol) where {T, N}
     n = length(modes.kz)
-    BlockMatrix(_sMatrix(sheet, modes, pol), [n, n], [n, n])
+    BlockMatrix(_sMatrix(sheet, modes, pol), [N*n, N*n], [N*n, N*n])
 end
 
 @generated function get_1D_uncoupled_GSTC_params(Z::ImpedanceStyle, sheet, modes, pol)
@@ -122,7 +135,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function _sLinearMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sLinearMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
     Z̃ˣˣ = ifft ∘ (x -> Diagonal(Zˣˣ) * x) ∘ fft
@@ -168,7 +181,7 @@ end
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a RCWASheet in a matrix-free fashion.
 """
-function _sBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
+function _sBlockMap(sheet::RCWASheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
     N = length(modes.kz)
     Z = ImpedanceStyle(sheet)
     Zˣˣ, Zʸʸ, ωη = get_1D_uncoupled_GSTC_params(Z, sheet, modes, pol)
@@ -190,20 +203,15 @@ function _sBlockMap(sheet::RCWASheet{1}, modes, pol::UncoupledPolarization)
 end
 
 """
-    smatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
+    smatrix(sheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
 
 Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
 polarization
 """
-function _sMatrix(sheet::RCWASheet{2}, modes, ::CoupledPolarization)
+function _sMatrix(sheet::RCWASheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
     n = length(modes.kz)
     A, B = _2Dsheetsmatrix(sheet, modes)
     A\B
-end
-
-function _sBlockMatrix(sheet::RCWASheet{2}, modes, pol::CoupledPolarization)
-    n = length(modes.kz)
-    BlockMatrix(_sMatrix(sheet, modes, pol), [2n, 2n], [2n, 2n])
 end
 
 "Return the variables needed to construct the dense scattering matrix"

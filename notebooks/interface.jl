@@ -75,7 +75,7 @@ k₀ = ω₀ # ω/c (c=1)
 md"
 #### Unit cell dimensions and discretization
 For each periodic dimension, give a number of grid points per unit cell and a size of 
-the unit cell: `dims::NTuple{N, Tuple{Int64,Float64}}`
+the unit cell: `dims::NTuple{N, Tuple{Int64,Float64}}`. This defines the dimensionality of the problem
 "
 
 # ╔═╡ 1e27a04a-0024-4dd4-8ee2-2cae0ef23d53
@@ -107,7 +107,7 @@ md"
 This isn't stored in `PlanewaveModes`, but it is necessary information for 2D
 photonic crystals with diagonal conductivity matrices, when the TE and TM
 polarizations decouple. Tell the solver whether to solve `TE()` or `TM()` when
-`N=1`. `Coupled()` exists for `N=2` (to be implemented).
+`N=1`. `Coupled()` exists for `N=2`.
 "
 
 # ╔═╡ 324aec31-05f2-4fb2-8825-79b2402ec7ee
@@ -133,31 +133,18 @@ I₂ = zeros(Nmodes)
 # ╔═╡ 3e0209fe-f316-436d-b017-422844535579
 md"
 ### Defining the scattering structure
-The abstract type `RCWAScatterer{N}` is the main respresentation of a unit cell 
-in a periodic scattering structure in `DeltaRCWA`.
-The type parameter `N` is an integer to specify that a scatterer has a unit cell
-with `N` periodic dimensions, which is the dimensionality of the problem.
-Any subtype of this can be used to define a problem, but the useful subtypes of it
-are `RCWASheet{N} <: RCWAScatterer{N}` which implements an interface for
-concrete scatterers with variable surface impedances, and concrete subtypes of
-`RCWAStack{N} <: RCWAScatterer{N}` exported by `DeltaRCWA` which represent
-sequences of sheets.
-For variable volume impedances, which would require a more computationally-expensive
-solver for the eigenmodes of Maxwell's equations in that structure such as
-[S⁴](http://www.stanford.edu/group/fan/S4/), a type `RCWASlab{N} <: RCWAScatterer{N}`
-is defined and could be extended with methods to calculate their scattering matrices.
 
 #### Creating a `RCWASheet`
-To create a sheet as part of a 2D photonic crystal, create a struct that is a subtype
-of `RCWASheet{1}` and store all the geometric/metasurface parameters you need in
+To create metasurface parameters for the unit cell of a sheet-like photonic crystal, create a struct that is a subtype
+of `RCWASheet` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
 # ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-struct TrivialSheet{N} <: RCWASheet{N} end
+struct TrivialSheet <: RCWASheet end
 
 # ╔═╡ a4e6f529-b914-4445-a6ee-7a316e259b9e
-struct ComplexExpSheet{N, T} <: RCWASheet{N}
+struct ComplexExpSheet{T} <: RCWASheet
     θ::T # incidence angle
     θᵗ::T # transmission angle
 	k::T # wavenumber
@@ -180,18 +167,17 @@ L = λ/abs(d) # unit-cell width/periodicity of ComplexExpSheet
 dims = ((Nmodes, L), )
 
 # ╔═╡ 6bfcdf25-1f4e-4724-a4bc-14a0222e2c2d
-sheet = ComplexExpSheet{1, Float64}(θ, θᵗ, ω, d)
+sheet = ComplexExpSheet{Float64}(θ, θᵗ, ω, d)
 
 # ╔═╡ a13facc7-06b6-4559-bf2f-a43afb3ffcfe
 md"
 #### Creating a `SheetStack`
-In order to put 2 or more sheets in a sequence, separated by a uniform medium
-(the one defined in `PlanewaveModes`) create an instance of a `SheetStack`.
+In order to put 2 or more sheets in a sequence, separated by a uniform medium create an instance of a `SheetStack`.
 Create a Tuple of the sheets you want to scatter off of and create a second Tuple
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
 ```julia
-struct SheetStack{N, L, T<:Tuple{RCWASheet{N}, Vararg{RCWASheet{N}, L}}} <: RCWAStack{N}
+struct SheetStack{L, T<:Tuple{RCWASheet, Vararg{RCWASheet, L}}}
     sheets::T
     depths::Tuple{Vararg{Float64, L}}
 end
@@ -299,7 +285,7 @@ md"
 ### Analysis
 The `DeltaRCWASolution` objects can have recipes to analyze and visualize them.
 #### Plotting
-`plot(::DeltaRCWASolution{T1, T2, 1} where {T1, T2})` should just work!
+`plot(::DeltaRCWASolution{1})` should just work!
 "
 
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
@@ -331,14 +317,11 @@ I₁ʸ = [n == m == modeN ? 1 : 0 for n in 1:Nmodes, m in 1:Mmodes]
 # ╔═╡ 213628fd-77a1-4753-bc30-f78c36ddd801
 I₂ʸ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
 
-# ╔═╡ b4c64a24-8d14-4054-b6d6-ad7952425115
-sheet3d = ComplexExpSheet{2, Float64}(θ, θᵗ, ω, d)
-
 # ╔═╡ bf01b9d0-4437-422f-a769-05955a41e2b1
 dims3d = ((Nmodes, L), (Mmodes, L/L))
 
 # ╔═╡ c68fc7c6-5eae-4984-82bf-4368ad910610
-prob3d = DeltaRCWAProblem(sheet3d, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+prob3d = DeltaRCWAProblem(sheet, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
 
 # ╔═╡ b966638a-fca0-4431-ac6a-e094c03b138c
 sol3d = solve(prob3d)
@@ -362,14 +345,8 @@ begin
 	heatmap(sol.modes.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
 end
 
-# ╔═╡ 8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
-stack3d = SheetStack(
-	Tuple(sheet3d for i in 1:nsheets),
-	Tuple(gap(i) for i in 1:(nsheets-1)),
-)
-
 # ╔═╡ 301ad780-83a1-46f3-a027-ef8a4ca198f6
-prob3dstack = DeltaRCWAProblem(stack3d, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+prob3dstack = DeltaRCWAProblem(stack, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
 
 # ╔═╡ f155c239-2001-4fd1-84b2-558827c7cdd2
 sol3dstack = solve(prob3dstack)
@@ -440,7 +417,6 @@ end
 # ╠═b6fed619-11f8-40a2-80dd-123adaf9c77c
 # ╠═3aafea78-513f-4a5c-8a1d-5b689a358a4e
 # ╠═213628fd-77a1-4753-bc30-f78c36ddd801
-# ╠═b4c64a24-8d14-4054-b6d6-ad7952425115
 # ╠═bf01b9d0-4437-422f-a769-05955a41e2b1
 # ╠═c68fc7c6-5eae-4984-82bf-4368ad910610
 # ╠═b966638a-fca0-4431-ac6a-e094c03b138c
@@ -448,7 +424,6 @@ end
 # ╠═d487aace-25f6-4706-985a-c52bb5799612
 # ╠═458e253d-f1f0-4e26-bd4a-831a44cd6722
 # ╠═d5d5ac2a-c94d-4695-8c19-63b9147c29fe
-# ╠═8bb7b1a2-ab66-41ac-86d5-6a29a06b2edc
 # ╠═301ad780-83a1-46f3-a027-ef8a4ca198f6
 # ╠═f155c239-2001-4fd1-84b2-558827c7cdd2
 # ╠═d7372f04-0ede-42ee-b9f5-0e96a2004d68
