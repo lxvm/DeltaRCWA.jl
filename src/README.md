@@ -11,7 +11,7 @@ of real space and momentum space
 - `media.jl`: definition of `UniformMedium` and helper functions for dispersion relation
 - `plotting.jl`: plotting recipes for `DeltaRCWASolution` types
 - `sheets.jl`: methods to obtain scattering matrices from metasurface impedance
-parameters in 1D unit cells and 2D unit cells (in progress)
+parameters in 1D unit cells and 2D unit cells
 - `slabs.jl`: methods to obtain scattering matrices from slabs of uniform
   materials
 - `gstcs.jl`: methods to help construct scattering matrices for sheets

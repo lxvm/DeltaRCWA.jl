@@ -75,10 +75,6 @@ function __sMatrix(fs, pol, pw, rsₑ, rsₘ, sheet, um₁, um₂)
         _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz₁, kz₂, ωη₁, ωη₂)...,
     )
     out\inc
-    # Rˣˣ, Rʸʸ, ωη₁, ωη₂ = _get_1D_uncoupled_GSTC_params(rsₑ, rsₘ, pw, sheet, um₁, um₂, pol)
-    # R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
-    # A, B = _get_1D_uncoupled_GSTC_matrices(rsₑ, rsₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(kz₁), ωη₁)
-    # A\B
 end
 function __sMatrix(fs, pol, pw, rsₑ, rsₘ, sheet, um::T, ::T) where T<:UniformMedium
     R̃ₑ = diagFT(_get_electric_response(pol, rsₑ, pw, sheet))
@@ -157,40 +153,6 @@ function _sBlockMatrix(fs, pw::PlaneWaves{N}, sheet::Sheet, um₁, um₂) where 
     BlockMatrix(_sMatrix(fs, pw, sheet, um₁, um₂), [N*n, N*n], [N*n, N*n])
 end
 
-@generated function _get_1D_uncoupled_GSTC_params(rsₑ, rsₘ, pw, sheet, ::UniformMedium{ϵ₁, μ₁}, ::UniformMedium{ϵ₂, μ₂}, pol) where {ϵ₁, μ₁, ϵ₂, μ₂}
-    Rˣ = rsₑ === Impedance ? :Z : :Y
-    Rʸ = rsₘ === Impedance ? :Z : :Y
-    if pol === TE
-        η₁, η₂, sˣ, sʸ = :μ₁, :μ₂, :ₘ, :ₑ
-    else # pol === TM
-        η₁, η₂, sˣ, sʸ = :ϵ₁, :ϵ₂, :ₑ, :ₘ
-    end
-    quote
-        Rˣˣ = $(Symbol(Rˣ, sˣ, :ˣˣ)).(Ref(sheet), Iterators.product(pw.x⃗...))
-        Rʸʸ = $(Symbol(Rʸ, sʸ, :ʸʸ)).(Ref(sheet), Iterators.product(pw.x⃗...))
-        ωη₁ = pw.ω * $η₁
-        ωη₂ = pw.ω * $η₂
-        Rˣˣ, Rʸʸ, ωη₁, ωη₂
-    end
-end
-
-@generated function _get_1D_uncoupled_GSTC_matrices(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
-    (A, B) = Rₑ === Impedance ? (:I, :R̃ˣˣ) : (:R̃ˣˣ, :I)
-    (C, D) = Rₘ === Impedance ? (:R̃ʸʸ, :I) : (:I, :R̃ʸʸ)
-    :(__get_1D_uncoupled_GSTC_matrices($A, $B, $C, $D, kz, ωη))
-end
-function __get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
-    A = [
-        (xxwithkz * kz + 2ωη * xxother)   (-xxwithkz * kz - 2ωη * xxother);
-        (yywithkz * kz + 0.5ωη * yyother) (yywithkz * kz + 0.5ωη * yyother)
-    ]
-    B = [
-        (xxwithkz * kz - 2ωη * xxother)   (-xxwithkz * kz + 2ωη * xxother);
-        (yywithkz * kz - 0.5ωη * yyother) (yywithkz * kz - 0.5ωη * yyother)
-    ]
-    A, B
-end
-
 """
     _sLinearMap(pw, sheet, pol)
 
@@ -213,36 +175,6 @@ function _sLinearMap(fs, pw::PlaneWaves{1}, sheet::Sheet, um₁, um₂)
         _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz₁, kz₂, ωη₁, ωη₂)...,
     )
     LinearMap(x -> gmres(out, inc(x)), 2n)
-end
-
-@generated function _get_1D_uncoupled_GSTC_LinearMaps(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
-    (A, B) = Rₑ === Impedance ? (:identity, :R̃ˣˣ) : (:R̃ˣˣ, :identity)
-    (C, D) = Rₘ === Impedance ? (:R̃ʸʸ, :identity) : (:identity, :R̃ʸʸ)
-    :(__get_1D_uncoupled_GSTC_LinearMaps($A, $B, $C, $D, kz, ωη))
-end
-function __get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother, kz, ωη)
-    N = size(kz, 1)
-    A = LinearMap(2N) do x
-        I₁ = x[1:N]
-        I₂ = x[(N+1):2N]
-        sumI₁I₂ = I₁ + I₂
-        diffI₁I₂ = I₁ - I₂
-        vcat(
-            xxwithkz(kz * diffI₁I₂) + xxother(2ωη * diffI₁I₂),
-            yywithkz(kz * sumI₁I₂) + yyother(0.5ωη * sumI₁I₂)
-        )
-    end
-    B = LinearMap(2N) do x
-        I₁ = x[1:N]
-        I₂ = x[(N+1):2N]
-        sumI₁I₂ = I₁ + I₂
-        diffI₁I₂ = I₁ - I₂
-        vcat(
-            xxwithkz(kz * diffI₁I₂) - xxother(2ωη * diffI₁I₂),
-            yywithkz(kz * sumI₁I₂) - yyother(0.5ωη * sumI₁I₂)
-        )
-    end
-    A, B
 end
 
 """
@@ -283,7 +215,6 @@ function Base.:\(A, B::BlockMap)
         invA_B₂₁    invA_B₂₂;
     ]
 end
-
 
 _sMatrix(fs, pw::PlaneWaves{2}, sheet::Sheet, um₁, um₂) = __sMatrix(fs, pw, ElectricResponseStyle(sheet), MagneticResponseStyle(sheet), sheet, um₁, um₂)
 function __sMatrix(fs, pw, rsₑ, rsₘ, sheet, um₁, um₂)
