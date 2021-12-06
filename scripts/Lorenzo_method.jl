@@ -34,7 +34,6 @@ function compute_DeltaRCWA_method(η::Function, μ::Function, L::Float64, N::Int
         FunctionSheet(η, μ),
         ((N, L), ),
         k,
-        DeltaRCWA.TM(),
         [i == j ? 1.0 : 0.0 for j in 1:N],
         zeros(N)
     )

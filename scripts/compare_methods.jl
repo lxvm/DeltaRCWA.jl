@@ -35,11 +35,11 @@ I₂error = zeros(length(exponents))
 O₁error = zeros(length(exponents))
 O₂error = zeros(length(exponents))
 for e in eachindex(exponents)
-    local N = 2^exponents[e]
+    N = 2^exponents[e]
     println("starting BIE #$e")
-    local BIE = compute_BIE_method(η, μ, L, N, k, i)
+    BIE = compute_BIE_method(η, μ, L, N, k, i)
     println("starting RCWA #$e")
-    local RCWA = compute_RCWA_method(η, μ, L, N, k, i)
+    RCWA = compute_RCWA_method(η, μ, L, N, k, i)
     # println("starting DeltaRCWA")
     # ΔRCWA = compute_DeltaRCWA_method(η, μ, L, N, k, i)
     I₁error[e] = sqrt(sum(abs2.(real.(BIE.I₁ - RCWA.I₁)))) / N^2
