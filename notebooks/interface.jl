@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -22,35 +22,35 @@ using LinearMaps
 # ╔═╡ 65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 using Plots
 
+# ╔═╡ 1045d269-d9d1-47c9-a663-2b38f85e825e
+using LinearAlgebra
+
 # ╔═╡ 0a627414-a5af-4fc3-852f-c98105e4d860
 md"
 ## Using `DeltaRCWA`'s interface
 These are the stages to using the solver, which needs this data
 ```julia
-struct DeltaRCWAProblem{N, T₁, T₂}
-    structure::T₁
-    modes::PlanewaveModes{T₂, N}
-    pol::AbstractPolarization
+struct DeltaRCWAProblem{N, T<:SheetStack}
+    stack::T
+    pw::PlaneWaves{N}
     I₁::Array{ComplexF64, N}
     I₂::Array{ComplexF64, N}
 end
 ```
 as explained and demonstrated below:
 ### Defining the scattering modes
-A struct called `PlanewaveModes{T, N}` is used to specify the discretization and
+A struct called `PlaneWaves{N}` is used to specify the discretization and
 periodicities of space in the unit cell where `DeltaRCWA` solves for the fields.
 `N` refers to the number of dimensions along which the unit cell is periodic.
 Along these periodic dimensions, the solutions can be expanded in the Fourier basis
 due to Bloch's theorem (much like the [Kronig-Penny model](https://en.wikipedia.org/wiki/Particle_in_a_one-dimensional_lattice)).
 The full structure is:
 ```julia
-struct PlanewaveModes{T, N}
+struct PlaneWaves{N}
     ω::Float64
-    M::UniformMedium{T}
     dims::NTuple{N, Tuple{Int64, Float64}}
-    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}
+    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}
     k⃗::NTuple{N, Frequencies{Float64}}
-    kz::Array{ComplexF64, N}
 end
 ```
 This data can be supplied with the following information (using convenience methods):
@@ -90,12 +90,14 @@ md"
 Planewaves are the eigenmodes of uniform media. Define the medium properties with
 either constructor
 ```julia
-struct UniformMedium{T <: Number}
-    ϵ::T
-    μ::T
+struct UniformMedium{ϵ, μ}
+    function UniformMedium{ϵ, μ}() where {ϵ, μ}
+        @assert ϵ isa Number
+        @assert μ isa Number
+        new{ϵ, μ}()
+    end
 end
-
-Vacuum(x=Bool) = UniformMedium(one(x), one(x))
+const Vacuum = UniformMedium{1, 1}()
 ```
 
 The default value is always vacuum
@@ -104,14 +106,14 @@ The default value is always vacuum
 # ╔═╡ 22fd2b7b-4418-4cd6-9ff0-eecdf1775d9b
 md"
 #### Polarization
-This isn't stored in `PlanewaveModes`, but it is necessary information for 2D
+This is a trait of `PlaneWaves{N}`, and is relevant information only for 2D
 photonic crystals with diagonal conductivity matrices, when the TE and TM
-polarizations decouple. Tell the solver whether to solve `TE()` or `TM()` when
-`N=1`. `Coupled()` exists for `N=2`.
+polarizations decouple. By default the solver computes the `TM()` modes when
+`N=1`. `Coupled()` exists for `N=2`. Override the default with the line below
 "
 
 # ╔═╡ 324aec31-05f2-4fb2-8825-79b2402ec7ee
-pol = TM()
+# DeltaRCWA.PolarizationStyle(::Type{PlaneWaves{1}}) = TE()
 
 # ╔═╡ ce61314c-5ba5-4422-88ce-21f2b20e8110
 md"
@@ -140,15 +142,12 @@ of `Sheet` and store all the geometric/metasurface parameters you need in
 your struct to define the electric and magnetic impedances in the unit cell for it.
 "
 
-# ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-struct TrivialSheet <: Sheet end
-
 # ╔═╡ a4e6f529-b914-4445-a6ee-7a316e259b9e
 struct ComplexExpSheet{T} <: Sheet
     θ::T # incidence angle
     θᵗ::T # transmission angle
 	k::T # wavenumber
-    d::T # 
+    d::T # designer parameter
 end
 
 # ╔═╡ 77281f06-fcc9-4f75-a415-217cf9e581c1
@@ -177,9 +176,10 @@ Create a Tuple of the sheets you want to scatter off of and create a second Tupl
 with the size of the Vacuum gap that separates each of the sheets and pass these to
 the `SheetStack` constructor. Note that there is one gap fewer than the number of sheets.
 ```julia
-struct SheetStack{L, T<:Tuple{Sheet, Vararg{Sheet, L}}}
-    sheets::T
+struct SheetStack{L, T<:Tuple{Sheet, Vararg{Sheet, L}}, M<:Tuple{UniformMedium, UniformMedium, Vararg{UniformMedium, L}}}
     depths::Tuple{Vararg{Float64, L}}
+    sheets::T
+    media::M
 end
 ```
 "
@@ -192,8 +192,8 @@ gap(x) = 2L
 
 # ╔═╡ 73d6e43f-214b-47ea-b2fd-df60dc412ae1
 stack = SheetStack(
-	Tuple(sheet for i in 1:nsheets),
 	Tuple(gap(i) for i in 1:(nsheets-1)),
+	Tuple(sheet for i in 1:nsheets),
 )
 
 # ╔═╡ af78faae-2d92-4035-81d5-9856d662e876
@@ -242,7 +242,7 @@ Uncomment and run the code below to reproduce the same example with a different 
 
 # ╔═╡ bf0fad44-d478-48c6-9c05-33cd6bf61a7b
 # begin
-# 	# DeltaRCWA.ElectricResponseStyle(::Type{ComplexExpSheet}) = Admittance()
+# 	DeltaRCWA.ElectricResponseStyle(::Type{ComplexExpSheet}) = Admittance()
 # 	function DeltaRCWA.Yₑˣˣ(sheet::ComplexExpSheet, x⃗)
 # 		# this is 1 ./ Zₑˣˣ except with a small perturbation to be nonsingular
 # 		2 / (-sin(sheet.θ)*(1e-10 + 1-exp(1im*sheet.k*sheet.d*x⃗[1])))
@@ -256,24 +256,24 @@ Create `DeltaRCWAProblem`s, `solve` them, and receive a `DeltaRCWASolution`.
 "
 
 # ╔═╡ aad04ca7-b150-49c2-8a8a-4dc792959649
-prob = DeltaRCWAProblem(sheet, dims, ω, pol, I₁, I₂)
+prob = DeltaRCWAProblem(sheet, dims, ω, I₁, I₂)
 
 # ╔═╡ 786a6947-7082-4902-a625-8be4bd3e30e7
 begin
 	### Display the magnetic conductivity / electric resistivity  along sheet
-	Z = [-0.5sin(sheet.θ)*(1-exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
-	Y = [-2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x)) for x in prob.modes.x⃗[1]]
-	plot(prob.modes.x⃗[1],  real.(Z), label="Re(Zₑˣˣ)")
-	plot!(prob.modes.x⃗[1], imag.(Z), label="Im(Zₑˣˣ)", ls=:dash)
-	plot!(prob.modes.x⃗[1], real.(Y), label="Re(Yₘʸʸ)")
-	plot!(prob.modes.x⃗[1], imag.(Y), label="Im(Yₘʸʸ)", ls=:dash)
+	Z = [-0.5sin(sheet.θ)*(1-exp(1im*sheet.k*sheet.d*x)) for x in prob.pw.x⃗[1]]
+	Y = [-2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x)) for x in prob.pw.x⃗[1]]
+	plot(prob.pw.x⃗[1],  real.(Z), label="Re(Zₑˣˣ)")
+	plot!(prob.pw.x⃗[1], imag.(Z), label="Im(Zₑˣˣ)", ls=:dash)
+	plot!(prob.pw.x⃗[1], real.(Y), label="Re(Yₘʸʸ)")
+	plot!(prob.pw.x⃗[1], imag.(Y), label="Im(Yₘʸʸ)", ls=:dash)
 end
 
 # ╔═╡ 386f61fa-ab15-40bc-b9be-593622ad42da
 sol = solve(prob)
 
 # ╔═╡ fe8b8e5a-7de9-4655-ab19-076d58ce0143
-stackprob = DeltaRCWAProblem(stack, dims, ω, pol, I₁, I₂)
+stackprob = DeltaRCWAProblem(stack, dims, ω, I₁, I₂)
 
 # ╔═╡ 20e74b68-23a4-47f1-acea-0b244efd25ae
 stacksol = solve(stackprob, T=Matrix)
@@ -287,10 +287,10 @@ The `DeltaRCWASolution` objects can have recipes to analyze and visualize them.
 "
 
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
-plot(sol, combine=true, aspect_ratio=1)
+plot(sol, combine=true, aspect_ratio=1, clim=(-1,1), color=:RdBu)
 
 # ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
-plot(stacksol, combine=true, clim=(-1, 1), aspect_ratio=1)
+plot(stacksol, combine=true, clim=(-1, 1), color=:RdBu, aspect_ratio=1)
 
 # ╔═╡ 10442fb5-d595-4ef6-a1e9-4d588609dbaf
 md"""
@@ -319,7 +319,7 @@ I₂ʸ = [n == m == modeN ? 0 : 0 for n in 1:Nmodes, m in 1:Mmodes]
 dims3d = ((Nmodes, L), (Mmodes, L/L))
 
 # ╔═╡ c68fc7c6-5eae-4984-82bf-4368ad910610
-prob3d = DeltaRCWAProblem(sheet, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+prob3d = DeltaRCWAProblem(sheet, dims3d, ω, hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
 
 # ╔═╡ b966638a-fca0-4431-ac6a-e094c03b138c
 sol3d = solve(prob3d)
@@ -336,15 +336,16 @@ z⃗₂ = z⃗[z⃗ .> 0]
 # ╔═╡ d5d5ac2a-c94d-4695-8c19-63b9147c29fe
 begin
 	# quick plotting
-	CO₁ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₁)) .* sol3d.O₁[NMmodes.+(1:Nmodes)], 1))
-	CI₂ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₂)) .* sol3d.I₂[NMmodes.+(1:Nmodes)], 1))
-	CI₁ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₁)) .* sol3d.I₁[NMmodes.+(1:Nmodes)], 1))
-	CO₂ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₂)) .* sol3d.O₂[NMmodes.+(1:Nmodes)], 1))
-	heatmap(sol.modes.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
+	kz = DeltaRCWA._get_kz(sol.pw, sol3d.stack.media[1])
+	CO₁ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₁)) .* sol3d.O₁[NMmodes.+(1:Nmodes)], 1))
+	CI₂ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol3d.I₂[NMmodes.+(1:Nmodes)], 1))
+	CI₁ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₁)) .* sol3d.I₁[NMmodes.+(1:Nmodes)], 1))
+	CO₂ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₂)) .* sol3d.O₂[NMmodes.+(1:Nmodes)], 1))
+	heatmap(sol.pw.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
 end
 
 # ╔═╡ 301ad780-83a1-46f3-a027-ef8a4ca198f6
-prob3dstack = DeltaRCWAProblem(stack, dims3d, ω, Coupled(), hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
+prob3dstack = DeltaRCWAProblem(stack, dims3d, ω, hcat(I₁ˣ, I₁ʸ), hcat(I₂ˣ, I₂ʸ))
 
 # ╔═╡ f155c239-2001-4fd1-84b2-558827c7cdd2
 sol3dstack = solve(prob3dstack)
@@ -352,12 +353,51 @@ sol3dstack = solve(prob3dstack)
 # ╔═╡ d7372f04-0ede-42ee-b9f5-0e96a2004d68
 begin
 	# quick plotting
-	DO₁ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₁)) .* sol3dstack.O₁[NMmodes.+(1:Nmodes)], 1))
-	DI₂ = rotr90(DeltaRCWA.bfft(exp.(-sol.modes.kz * transpose(im * z⃗₂)) .* sol3dstack.I₂[NMmodes.+(1:Nmodes)], 1))
-	DI₁ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₁)) .* sol3dstack.I₁[NMmodes.+(1:Nmodes)], 1))
-	DO₂ = rotr90(DeltaRCWA.bfft(exp.( sol.modes.kz * transpose(im * z⃗₂)) .* sol3dstack.O₂[NMmodes.+(1:Nmodes)], 1))
-	heatmap(sol.modes.x⃗, z⃗, real.(cat(DI₁ + DO₁, DI₂ + DO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
+	DO₁ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₁)) .* sol3dstack.O₁[NMmodes.+(1:Nmodes)], 1))
+	DI₂ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol3dstack.I₂[NMmodes.+(1:Nmodes)], 1))
+	DI₁ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₁)) .* sol3dstack.I₁[NMmodes.+(1:Nmodes)], 1))
+	DO₂ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₂)) .* sol3dstack.O₂[NMmodes.+(1:Nmodes)], 1))
+	heatmap(sol.pw.x⃗, z⃗, real.(cat(DI₁ + DO₁, DI₂ + DO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
 end
+
+# ╔═╡ 01ce775c-56cc-4bc4-bcd3-6253401686f4
+md"""
+## Fresnel scattering
+
+We can also
+"""
+
+# ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
+struct TrivialSheet <: Sheet end
+
+# ╔═╡ a688edd1-e73f-4cd9-b4ee-0d9f9c4914b5
+DeltaRCWA.ElectricResponseStyle(::Type{TrivialSheet}) = Admittance()
+
+# ╔═╡ 6ec228b1-472a-486b-bf0b-8f055e9cee6b
+Fresnelstack = SheetStack(TrivialSheet(), (Vacuum, UniformMedium{1.7, 1.0}()))
+
+# ╔═╡ 879a9574-d830-41c2-9b96-833728a97718
+Fresnelprob = DeltaRCWAProblem(Fresnelstack, dims, ω, [n==3 ? 1 : 0 for n in 1:Nmodes], I₂)
+# Fresnelprob = DeltaRCWAProblem(Fresnelstack, dims3d, ω, hcat(I₁ˣ, [n==3 ? 1 : 0 for n in 1:Nmodes, m in 1:Mmodes]), hcat(I₂ˣ, I₂ʸ))
+
+# ╔═╡ 2368f08b-7538-4297-9042-0e01187e7aab
+Fresnelsol = solve(Fresnelprob)
+
+# ╔═╡ 270c6aff-d833-45c7-8020-849b2857dd0b
+plot(Fresnelsol)
+
+# ╔═╡ 979f7fed-7123-4c02-b698-b7e47e71d107
+SOS = smatrix(Matrix, FieldStyle(Fresnelprob), Fresnelprob.pw, Fresnelprob.stack)
+
+# ╔═╡ d577cf47-7ddc-46e3-b1a5-66831f51fc20
+# if scattering matrix is unitary, this should be zero
+norm(SOS'SOS - I) / norm(SOS'SOS)
+
+# ╔═╡ 7f777ca5-27a9-4b83-b23a-29053b1c03b0
+norm(vcat(Fresnelsol.I₁, Fresnelsol.I₂))
+
+# ╔═╡ b09bff4c-7391-4808-8a88-3ae226059e43
+norm(vcat(Fresnelsol.O₁, Fresnelsol.O₂))
 
 # ╔═╡ Cell order:
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
@@ -384,7 +424,6 @@ end
 # ╠═4a5de2d0-28e5-4963-b9b3-95fd13f2dd95
 # ╠═1bc23e37-fb20-4d00-95b4-aa7334e18578
 # ╟─3e0209fe-f316-436d-b017-422844535579
-# ╠═a3035662-3261-43c7-a6cb-2cae4c8b8b0f
 # ╠═a4e6f529-b914-4445-a6ee-7a316e259b9e
 # ╠═77281f06-fcc9-4f75-a415-217cf9e581c1
 # ╠═1192e390-1f87-486b-b6b4-7447f07f407b
@@ -425,3 +464,15 @@ end
 # ╠═301ad780-83a1-46f3-a027-ef8a4ca198f6
 # ╠═f155c239-2001-4fd1-84b2-558827c7cdd2
 # ╠═d7372f04-0ede-42ee-b9f5-0e96a2004d68
+# ╠═01ce775c-56cc-4bc4-bcd3-6253401686f4
+# ╠═a3035662-3261-43c7-a6cb-2cae4c8b8b0f
+# ╠═a688edd1-e73f-4cd9-b4ee-0d9f9c4914b5
+# ╠═6ec228b1-472a-486b-bf0b-8f055e9cee6b
+# ╠═879a9574-d830-41c2-9b96-833728a97718
+# ╠═2368f08b-7538-4297-9042-0e01187e7aab
+# ╠═270c6aff-d833-45c7-8020-849b2857dd0b
+# ╠═979f7fed-7123-4c02-b698-b7e47e71d107
+# ╠═1045d269-d9d1-47c9-a663-2b38f85e825e
+# ╠═d577cf47-7ddc-46e3-b1a5-66831f51fc20
+# ╠═7f777ca5-27a9-4b83-b23a-29053b1c03b0
+# ╠═b09bff4c-7391-4808-8a88-3ae226059e43

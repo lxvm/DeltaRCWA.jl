@@ -1,47 +1,34 @@
-export get_kz, PlanewaveModes
+export PlaneWaves, PolarizationStyle, TE, TM, Coupled
 
-"""
-    get_kz(k⃗, ω, [M::UniformMedium])
-
-Returns an array of kz from the dispersion relation k⋅k = ω²ϵμ where without
-a medium, the vacuum values of ϵ = μ = 1 are used.
-
-Arguments:
-k⃗ :: collection of collections (e.g. NTuple{N, Frequencies})
-ω :: Number
-"""
-get_kz(k⃗, ω) = _get_kz(k⃗, ω^2)
-get_kz(k⃗, ω, M::UniformMedium) = _get_kz(k⃗, (ω^2) * (M.ϵ * M.μ))
-
-function _get_kz(k⃗, k⃗²)
-    map(e⃗ -> sqrt(Complex(k⃗² - mapreduce(abs2, +, e⃗, init=zero(k⃗²)))), Iterators.product(k⃗...))
-end
-
-struct PlanewaveModes{T, N}
+struct PlaneWaves{N}
     ω::Float64
-    M::UniformMedium{T}
     dims::NTuple{N, Tuple{Int64, Float64}}
-    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}}}
+    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}
     k⃗::NTuple{N, Frequencies{Float64}}
-    kz::Array{ComplexF64, N}
 end
 
 """
-    PlanewaveModes(
-        ω::Float64,
-        dims::NTuple{N, Tuple{Int64, Float64}},
-        medium::UniformMedium
-    ) where N
+    PlaneWaves(ω::Float64, dims::Tuple{Vararg{Tuple{Int64, Float64}}})
 
 This constructor takes a frequency, and an NTuple of Tuple{Int64, Float64}.
 Each tuple represents a periodic dimension, and the Int64 represents the number
 of grid points per unit cell in that periodic dimension, and the Float64 gives
 the lattice constant in that periodic dimension (length of unit cell).
 """
-function PlanewaveModes(ω::Float64, dims::NTuple{N, Tuple{Int64, Float64}}, M::UniformMedium) where N
+function PlaneWaves(ω::Float64, dims::Tuple{Vararg{Tuple{Int64, Float64}}})
     x⃗ = Tuple(range(0, step=e[2] / e[1], length=e[1]) for e in dims)
     k⃗ = Tuple(2π * fftfreq(e[1], e[1] / e[2]) for e in dims)
-    kz = get_kz(k⃗, ω, M)
-    # is_propagating = BitArray(@. isreal(kz) & !(iszero(kz)))
-    PlanewaveModes(ω, M, dims, x⃗, k⃗, kz)
+    PlaneWaves(ω, dims, x⃗, k⃗)
 end
+
+Base.size(pw::PlaneWaves) = Tuple(e[1] for e in pw.dims)
+Base.length(pw::PlaneWaves) = prod(size(pw))
+
+abstract type PolarizationStyle end
+struct TE <: PolarizationStyle end
+struct TM <: PolarizationStyle end
+struct Coupled <: PolarizationStyle end
+
+PolarizationStyle(pw::PlaneWaves) = PolarizationStyle(typeof(pw))
+PolarizationStyle(::Type{PlaneWaves{1}}) = TM()
+PolarizationStyle(::Type{PlaneWaves{2}}) = Coupled()

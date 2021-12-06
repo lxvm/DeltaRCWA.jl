@@ -1,3 +1,54 @@
+export Sheet, ElectricResponseStyle, MagneticResponseStyle, Impedance, Admittance
+
+"""
+    Sheet
+
+An abstract type to dispatch methods for 2D structures embedded in a homogenous
+medium modelled with Generalized Sheet Transition Conditions (GSTCs).
+See:
+Kuester, Edward et al.
+"Averaged transition conditions for electromagnetic fields at a metafilm"
+https://doi.org/10.1109/TAP.2003.817560
+"""
+abstract type Sheet end
+
+"""
+    ResponseStyle
+
+Based on `IndexStyle` in Base, provides an interface for user-defined types to
+choose between a formulation of the same problem in terms of their preferred
+material response parameters.
+"""
+abstract type ResponseStyle end
+
+"""
+    Impedance()
+
+`ResponseStyle` to describe materials whose response is given by an impedance.
+"""
+struct Impedance <: ResponseStyle end
+
+"""
+    Admittance()
+
+`ResponseStyle` to describe materials whose response is given by an admittance.
+"""
+struct Admittance <: ResponseStyle end
+
+"""
+    ElectricResponseStyle(sheet)
+    ElectricResponseStyle(typeof(sheet))
+"""
+ElectricResponseStyle(sheet::Sheet) = ElectricResponseStyle(typeof(sheet))
+ElectricResponseStyle(::Type{<:Sheet}) = Impedance()
+
+"""
+    MagneticResponseStyle(sheet)
+    MagneticResponseStyle(typeof(sheet))
+"""
+MagneticResponseStyle(sheet::Sheet) = MagneticResponseStyle(typeof(sheet))
+MagneticResponseStyle(::Type{<:Sheet}) = Admittance()
+
 # Define default behavior of impedance/admittance parameters
 for R in (:Z, :Y), s in (:ₑ, :ₘ), i in (:ˣ, :ʸ), j in (:ˣ, :ʸ)
     @eval begin
@@ -7,47 +58,54 @@ for R in (:Z, :Y), s in (:ₑ, :ₘ), i in (:ˣ, :ʸ), j in (:ˣ, :ʸ)
 end
 
 """
-    _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, ::UncoupledPolarization)
-
-Returns a 2x2 Matrix for the scattering of modes specific to the TE or TM 
-polarization
+    _sMatrix(::FieldStyle, ::PlaneWaves, ::Sheet, ::UniformMedium, ::UniformMedium)
 """
-function _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
-    n = length(modes.kz)
-    Rₑ = ElectricResponseStyle(sheet)
-    Rₘ = MagneticResponseStyle(sheet)
-    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
-    R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
-    A, B = _get_1D_uncoupled_GSTC_matrices(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(modes.kz), ωη)
-    A\B
+_sMatrix(fs, pw::PlaneWaves{1}, sheet::Sheet, um₁, um₂) = _sMatrix(fs, PolarizationStyle(pw), pw, sheet, um₁, um₂)
+_sMatrix(fs::EField, pol::TE, pw, sheet, um₁, um₂) = __sMatrix(fs, pol, pw, ElectricResponseStyle(sheet), MagneticResponseStyle(sheet), sheet, um₁, um₂)
+_sMatrix(fs::HField, pol::TM, pw, sheet, um₁, um₂) = __sMatrix(fs, pol, pw, ElectricResponseStyle(sheet), MagneticResponseStyle(sheet), sheet, um₁, um₂)
+function __sMatrix(fs, pol, pw, rsₑ, rsₘ, sheet, um₁, um₂)
+    R̃ₑ = diagFT(_get_electric_response(pol, rsₑ, pw, sheet))
+    R̃ₘ = diagFT(_get_magnetic_response(pol, rsₘ, pw, sheet))
+    kz₁ = Diagonal(_get_kz(pw, um₁))
+    kz₂ = Diagonal(_get_kz(pw, um₂))
+    ωη₁ = pw.ω * _get_η(pol, um₁)
+    ωη₂ = pw.ω * _get_η(pol, um₂)
+    out, inc = _gstcMatrix(fs,
+        _set_electric_terms(pol, rsₑ, R̃ₑ, kz₁, kz₂, ωη₁, ωη₂)...,
+        _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz₁, kz₂, ωη₁, ωη₂)...,
+    )
+    out\inc
+    # Rˣˣ, Rʸʸ, ωη₁, ωη₂ = _get_1D_uncoupled_GSTC_params(rsₑ, rsₘ, pw, sheet, um₁, um₂, pol)
+    # R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
+    # A, B = _get_1D_uncoupled_GSTC_matrices(rsₑ, rsₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(kz₁), ωη₁)
+    # A\B
+end
+function __sMatrix(fs, pol, pw, rsₑ, rsₘ, sheet, um::T, ::T) where T<:UniformMedium
+    R̃ₑ = diagFT(_get_electric_response(pol, rsₑ, pw, sheet))
+    R̃ₘ = diagFT(_get_magnetic_response(pol, rsₘ, pw, sheet))
+    kz = Diagonal(_get_kz(pw, um))
+    ωη = pw.ω * _get_η(pol, um)
+    out, inc = _gstcMatrix(fs,
+        _set_electric_terms(pol, rsₑ, R̃ₑ, kz, ωη)...,
+        _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz, ωη)...,
+    )
+    out\inc
 end
 
-function _sBlockMatrix(sheet::Sheet, modes::PlanewaveModes{T, N}, pol) where {T, N}
-    n = length(modes.kz)
-    BlockMatrix(_sMatrix(sheet, modes, pol), [N*n, N*n], [N*n, N*n])
-end
+_get_electric_response(::TM, ::Admittance, pw, sheet) = Yₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_electric_response(::TM, ::Impedance,  pw, sheet) = Zₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TM, ::Admittance, pw, sheet) = Yₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TM, ::Impedance,  pw, sheet) = Zₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
 
-@generated function _get_1D_uncoupled_GSTC_params(Rₑ::ResponseStyle, Rₘ::ResponseStyle, sheet, modes, pol)
-    Rˣ = Rₑ === Impedance ? :Z : :Y
-    Rʸ = Rₘ === Impedance ? :Z : :Y
-    if pol === TE
-        η, sˣ, sʸ = :μ, :ₘ, :ₑ
-    else # pol === TM
-        η, sˣ, sʸ = :ϵ, :ₑ, :ₘ
-    end
-    quote
-        Rˣˣ = $(Symbol(Rˣ, sˣ, :ˣˣ)).(Ref(sheet), Iterators.product(modes.x⃗...))
-        Rʸʸ = $(Symbol(Rʸ, sʸ, :ʸʸ)).(Ref(sheet), Iterators.product(modes.x⃗...))
-        ωη = modes.ω * modes.M.$(η)
-        Rˣˣ, Rʸʸ, ωη
-    end
-end
+_get_electric_response(::TE, ::Admittance, pw, sheet) = Yₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_electric_response(::TE, ::Impedance,  pw, sheet) = Zₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TE, ::Admittance, pw, sheet) = Yₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TE, ::Impedance,  pw, sheet) = Zₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
 
 """
-    diagFT(A::AbstractArray{<:Number, N}) where N
+    diagFT(A::AbstractArray{<:Number, ndim}) where ndim
 
-Accepts a diagonal endomorphism in N-D position space and returns the Fourier
-transformed  rank-2N tensor reshaped to a matrix with flattened indices
+Performs a Fourier transform of a diagonal operator/scalar field over an Nd grid
 """
 function diagFT(A::AbstractArray{<:Number, ndim}) where ndim
     n⃗ = size(A)
@@ -55,6 +113,65 @@ function diagFT(A::AbstractArray{<:Number, ndim}) where ndim
     Ã = Array(reshape(Diagonal(reshape(A, n)), (n⃗..., n⃗...)))
     Ã = fft(ifft(Ã, 1:ndim), (ndim+1):2ndim)
     reshape(Ã, (n, n))
+end
+
+_get_η(::TE, ::UniformMedium{ϵ, μ} where ϵ) where μ = μ
+_get_η(::TM, ::UniformMedium{ϵ, μ} where μ) where ϵ = ϵ
+
+_set_electric_terms(::TM, ::Impedance,  R̃, kz₁, kz₂, ωη₁, ωη₂) = (-R̃, kz₁ / 2ωη₁, kz₂ / 2ωη₂)
+_set_electric_terms(::TM, ::Admittance, R̃, kz₁, kz₂, ωη₁, ωη₂) = (-I, R̃*(kz₁ / 2ωη₁), R̃*(kz₂ / 2ωη₂))
+_set_magnetic_terms(::TM, ::Impedance,  R̃, kz₁, kz₂, ωη₁, ωη₂) = (R̃*(kz₁ / 0.5ωη₁), R̃*(kz₂ / 0.5ωη₂), -I)
+_set_magnetic_terms(::TM, ::Admittance, R̃, kz₁, kz₂, ωη₁, ωη₂) = (kz₁ / 0.5ωη₁, kz₂ / 0.5ωη₂, -R̃)
+
+_set_electric_terms(::TM, ::Impedance,  R̃, kz, ωη) = (-R̃, kz / 2ωη)
+_set_electric_terms(::TM, ::Admittance, R̃, kz, ωη) = (-I, R̃*(kz / 2ωη))
+_set_magnetic_terms(::TM, ::Impedance,  R̃, kz, ωη) = (R̃*(kz / 0.5ωη), -I)
+_set_magnetic_terms(::TM, ::Admittance, R̃, kz, ωη) = (kz / 0.5ωη, -R̃)
+
+_set_electric_terms(::TE, args...) = _set_magnetic_terms(TM(), args...)
+_set_magnetic_terms(::TE, args...) = _set_electric_terms(TM(), args...)
+
+# compute E field for TM mode by using TM relations to convert H to E
+function _sMatrix(::EField, pol::TM, pw, sheet, um₁, um₂)
+    S = _sMatrix(HField(), pol, pw, sheet, um₁, um₂)
+    η₁ = _get_η(pol, um₁)
+    η₂ = _get_η(pol, um₂)
+    kz₁ = _get_kz(pw, um₁)
+    kz₂ = _get_kz(pw, um₂)
+    HtoE = Diagonal(vcat(-kz₁ / pw.ω*η₁, kz₂ / pw.ω*η₂))
+    HtoE * S * inv(-HtoE)
+end
+# compute H field for TE mode by using TE relations to convert E to H
+function _sMatrix(::HField, pol::TE, pw, sheet, um₁, um₂)
+    S = _sMatrix(EField(), pol, pw, sheet, um₁, um₂)
+    η₁ = _get_η(pol, um₁)
+    η₂ = _get_η(pol, um₂)
+    kz₁ = _get_kz(pw, um₁)
+    kz₂ = _get_kz(pw, um₂)
+    EtoH = Diagonal(vcat(kz₁ / pw.ω*η₁, -kz₂ / pw.ω*η₂))
+    EtoH * S * inv(-EtoH)
+end
+
+function _sBlockMatrix(fs, pw::PlaneWaves{N}, sheet::Sheet, um₁, um₂) where N
+    n = length(pw)
+    BlockMatrix(_sMatrix(fs, pw, sheet, um₁, um₂), [N*n, N*n], [N*n, N*n])
+end
+
+@generated function _get_1D_uncoupled_GSTC_params(rsₑ, rsₘ, pw, sheet, ::UniformMedium{ϵ₁, μ₁}, ::UniformMedium{ϵ₂, μ₂}, pol) where {ϵ₁, μ₁, ϵ₂, μ₂}
+    Rˣ = rsₑ === Impedance ? :Z : :Y
+    Rʸ = rsₘ === Impedance ? :Z : :Y
+    if pol === TE
+        η₁, η₂, sˣ, sʸ = :μ₁, :μ₂, :ₘ, :ₑ
+    else # pol === TM
+        η₁, η₂, sˣ, sʸ = :ϵ₁, :ϵ₂, :ₑ, :ₘ
+    end
+    quote
+        Rˣˣ = $(Symbol(Rˣ, sˣ, :ˣˣ)).(Ref(sheet), Iterators.product(pw.x⃗...))
+        Rʸʸ = $(Symbol(Rʸ, sʸ, :ʸʸ)).(Ref(sheet), Iterators.product(pw.x⃗...))
+        ωη₁ = pw.ω * $η₁
+        ωη₂ = pw.ω * $η₂
+        Rˣˣ, Rʸʸ, ωη₁, ωη₂
+    end
 end
 
 @generated function _get_1D_uncoupled_GSTC_matrices(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
@@ -75,20 +192,27 @@ function __get_1D_uncoupled_GSTC_matrices(xxwithkz, xxother, yywithkz, yyother, 
 end
 
 """
-    _sLinearMap(sheet, modes, pol)
+    _sLinearMap(pw, sheet, pol)
 
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a Sheet in a matrix-free fashion.
 """
-function _sLinearMap(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
-    Rₑ = ElectricResponseStyle(sheet)
-    Rₘ = MagneticResponseStyle(sheet)
-    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
-    R̃ˣˣ, R̃ʸʸ = diagFT.((Rˣˣ, Rʸʸ))
-    R̃ˣˣ = ifft ∘ (x -> Diagonal(Rˣˣ) * x) ∘ fft
-    R̃ʸʸ = ifft ∘ (x -> Diagonal(Rʸʸ) * x) ∘ fft
-    A, B = _get_1D_uncoupled_GSTC_LinearMaps(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, Diagonal(modes.kz), ωη)
-    LinearMap(x -> gmres(A, B(x)), 2length(modes.kz))
+function _sLinearMap(fs, pw::PlaneWaves{1}, sheet::Sheet, um₁, um₂)
+    rsₑ = ElectricResponseStyle(sheet)
+    rsₘ = MagneticResponseStyle(sheet)
+    pol = PolarizationStyle(pw)
+    n = length(pw)
+    R̃ₘ = LinearMap(ifft ∘ (x -> Diagonal(_get_magnetic_response(pol, rsₘ, pw, sheet)) * x) ∘ fft, n)
+    R̃ₑ = LinearMap(ifft ∘ (x -> Diagonal(_get_electric_response(pol, rsₑ, pw, sheet)) * x) ∘ fft, n)
+    kz₁ = LinearMap(Diagonal(_get_kz(pw, um₁)))
+    kz₂ = LinearMap(Diagonal(_get_kz(pw, um₂)))
+    ωη₁ = pw.ω * _get_η(pol, um₁)
+    ωη₂ = pw.ω * _get_η(pol, um₂)
+    out, inc = _gstcLinearMap(fs,
+        _set_electric_terms(pol, rsₑ, R̃ₑ, kz₁, kz₂, ωη₁, ωη₂)...,
+        _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz₁, kz₂, ωη₁, ωη₂)...,
+    )
+    LinearMap(x -> gmres(out, inc(x)), 2n)
 end
 
 @generated function _get_1D_uncoupled_GSTC_LinearMaps(Rₑ::ResponseStyle, Rₘ::ResponseStyle, R̃ˣˣ, R̃ʸʸ, kz, ωη)
@@ -122,23 +246,34 @@ function __get_1D_uncoupled_GSTC_LinearMaps(xxwithkz, xxother, yywithkz, yyother
 end
 
 """
-    smatrixBlockMap(sheet, modes, pol)
+    smatrixBlockMap(pw, sheet, pol)
 
 Return a function that will compute the matrix-vector product with the
 scattering matrix of a Sheet in a matrix-free fashion.
 """
-function _sBlockMap(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::UncoupledPolarization)
-    N = length(modes.kz)
-    Rₑ = ElectricResponseStyle(sheet)
-    Rₘ = MagneticResponseStyle(sheet)
-    Rˣˣ, Rʸʸ, ωη = _get_1D_uncoupled_GSTC_params(Rₑ, Rₘ, sheet, modes, pol)
+function _sBlockMap(fs, pw::PlaneWaves{1}, sheet::Sheet, um₁, um₂)
+    N = length(pw)
+    rsₑ = ElectricResponseStyle(sheet)
+    rsₘ = MagneticResponseStyle(sheet)
+    pol = PolarizationStyle(pw)
     _fft = LinearMap{ComplexF64}(fft, ifft, N)
-    R̃ˣˣ = _fft' * LinearMap(Diagonal(Rˣˣ)) * _fft
-    R̃ʸʸ = _fft' * LinearMap(Diagonal(Rʸʸ)) * _fft
-    kz = LinearMap(Diagonal(modes.kz))
-    A, B = _get_1D_uncoupled_GSTC_matrices(Rₑ, Rₘ, R̃ˣˣ, R̃ʸʸ, kz, ωη)
-    # Build the matrix inversion block-by-block
+    R̃ₘ = _fft' * LinearMap(Diagonal(_get_magnetic_response(pol, rsₘ, pw, sheet))) * _fft
+    R̃ₑ = _fft' * LinearMap(Diagonal(_get_electric_response(pol, rsₑ, pw, sheet))) * _fft
+    kz₁ = LinearMap(Diagonal(_get_kz(pw, um₁)))
+    kz₂ = LinearMap(Diagonal(_get_kz(pw, um₂)))
+    ωη₁ = pw.ω * _get_η(pol, um₁)
+    ωη₂ = pw.ω * _get_η(pol, um₂)
+    out, inc = _gstcMatrix(fs,
+        _set_electric_terms(pol, rsₑ, R̃ₑ, kz₁, kz₂, ωη₁, ωη₂)...,
+        _set_magnetic_terms(pol, rsₘ, R̃ₘ, kz₁, kz₂, ωη₁, ωη₂)...,
+    )
+    out\inc
+end
+
+function Base.:\(A, B::BlockMap)
     B₁₁, B₁₂, B₂₁, B₂₂ = B.maps
+    N = size(B₁₁, 1)
+    # Build the matrix inversion block-by-block
     invA_B₁₁ = LinearMap(x -> gmres(A, vcat(B₁₁ * x, B₂₁ * x))[1:N], N)
     invA_B₁₂ = LinearMap(x -> gmres(A, vcat(B₁₂ * x, B₂₂ * x))[1:N], N)
     invA_B₂₁ = LinearMap(x -> gmres(A, vcat(B₁₁ * x, B₂₁ * x))[(N+1):2N], N)
@@ -149,84 +284,104 @@ function _sBlockMap(sheet::Sheet, modes::PlanewaveModes{T, 1} where T, pol::Unco
     ]
 end
 
-"""
-    smatrix(sheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
 
-Returns a 2x2 BlockMatrix for the scattering of modes specific to the TE or TM 
-polarization
-"""
-function _sMatrix(sheet::Sheet, modes::PlanewaveModes{T, 2} where T, ::CoupledPolarization)
-    n = length(modes.kz)
-    A, B = _2Dsheetsmatrix(sheet, modes)
-    A\B
-end
-
-"Return the variables needed to construct the dense scattering matrix"
-function _get_params_2Dsheetsmatrix(sheet, modes)
-    n = length(modes.kz)
-    R = (
-        xx = (0I)(n),
-        xy = (-I)(n),
-        yx = (1I)(n),
-        yy = (0I)(n),
-    )
-    ωμ = modes.ω * modes.M.μ
-    k⃗² = modes.ω * modes.M.ϵ * ωμ
-    Zₑ = (
-        xx = Zₑˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        xy = Zₑˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yx = Zₑʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yy = Zₑʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-    )
-    Yₘ = (
-        xx = Yₘˣˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        xy = Yₘˣʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yx = Yₘʸˣ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-        yy = Yₘʸʸ.(Ref(sheet), Iterators.product(modes.x⃗...)),
-    )
-    K = (
-        xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
-        xy = [k⃗[1] .* k⃗[2] for k⃗ in Iterators.product(modes.k⃗...)],
-        # yx = [k⃗[2] * k⃗[1] for k⃗ in Iterators.product(modes.k⃗...)],
-        yy = [k⃗[2] .* k⃗[2] for k⃗ in Iterators.product(modes.k⃗...)],
-    )
-    Zₑ, Yₘ, R, K, modes.kz, k⃗², ωμ
-end
-
-function _2Dsheetsmatrix(sheet, modes)
-    Zₑ, Yₘ, R, K, kz, k⃗², ωμ = _get_params_2Dsheetsmatrix(sheet, modes)
-    K_term = mortar(
-        Diagonal.(reshape.((K.xx .- k⃗², K.xy), :)),
-        Diagonal.(reshape.((K.xy, K.yy .- k⃗²), :)),
-    )
-    R_term = mortar(
-        (R.xx, R.xy),
-        (R.yx, R.yy),
-    )
-    # need to do Fourier transform of each block
-    Z̃ₑ_term = mortar(
-        diagFT.((Zₑ.xx, Zₑ.xy)),
-        diagFT.((Zₑ.yx, Zₑ.yy)),
-    )
-    Z̃ₑ_term = Matrix(K_term * transpose(R_term) * Z̃ₑ_term * R_term)
-    Ỹₘ_term = mortar(
-        diagFT.((Yₘ.xx, Yₘ.xy)),
-        diagFT.((Yₘ.yx, Yₘ.yy)),
-    )
-    Ỹₘ_term = Matrix(K_term * Ỹₘ_term)
-    # return Z̃ₑ_term, Zₑ
-    kz_term = ωμ * Diagonal(vcat(reshape.((kz, kz), :)...))
-    _build_2D_GSTC_smatrix(Z̃ₑ_term, Ỹₘ_term, kz_term)
-end
-
-function _build_2D_GSTC_smatrix(Z̃ₑ_term, Ỹₘ_term, kz_term)
-    A = [
-        -Z̃ₑ_term + 0.5*kz_term   Z̃ₑ_term - 0.5*kz_term;
-        -Ỹₘ_term + 2*kz_term     -Ỹₘ_term + 2*kz_term
+_sMatrix(fs, pw::PlaneWaves{2}, sheet::Sheet, um₁, um₂) = __sMatrix(fs, pw, ElectricResponseStyle(sheet), MagneticResponseStyle(sheet), sheet, um₁, um₂)
+function __sMatrix(fs, pw, rsₑ, rsₘ, sheet, um₁, um₂)
+    Rₑ = _get_electric_response_components(rsₑ, pw, sheet)
+    Rₘ = _get_magnetic_response_components(rsₘ, pw, sheet)
+    R̃ₑ = [
+        diagFT(vec(Rₑ.xx))   diagFT(vec(Rₑ.xy))
+        diagFT(vec(Rₑ.yx))   diagFT(vec(Rₑ.yy))
     ]
-    B = [
-        Z̃ₑ_term + 0.5*kz_term   -Z̃ₑ_term - 0.5*kz_term;
-        Ỹₘ_term + 2*kz_term     Ỹₘ_term - 2*kz_term
+    R̃ₘ = [
+        diagFT(vec(Rₘ.xx))   diagFT(vec(Rₘ.xy))
+        diagFT(vec(Rₘ.yx))   diagFT(vec(Rₘ.yy))
     ]
-    A, B
+    ωϵ₁, ωμ₁ = pw.ω .* _get_ϵμ(um₁)
+    ωϵ₂, ωμ₂ = pw.ω .* _get_ϵμ(um₂)
+    kz₁ = Diagonal(repeat(vec(_get_kz(pw, um₁)), 2))
+    kz₂ = Diagonal(repeat(vec(_get_kz(pw, um₂)), 2))
+    _K = _get_K_components(pw)
+    K = [
+        Diagonal(vec(_K.xx)) Diagonal(vec(_K.xy))
+        Diagonal(vec(_K.yx)) Diagonal(vec(_K.yy))
+    ]
+    Ω₁ = K - (ωϵ₁ * ωμ₁)*I
+    Ω₂ = K - (ωϵ₂ * ωμ₂)*I
+    n = length(pw)
+    C = [
+        (0I)(n) (-I)(n)
+        (1I)(n) (0I)(n)
+    ]
+    out, inc = _gstcMatrix(fs,
+        _set_electric_terms(fs, rsₑ, R̃ₑ, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C)...,
+        _set_magnetic_terms(fs, rsₘ, R̃ₘ, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C)...,
+    )
+    out\inc
 end
+function __sMatrix(fs, pw, rsₑ, rsₘ, sheet, um::T, ::T) where T<:UniformMedium
+    Rₑ = _get_electric_response_components(rsₑ, pw, sheet)
+    Rₘ = _get_magnetic_response_components(rsₘ, pw, sheet)
+    R̃ₑ = [
+        diagFT(vec(Rₑ.xx))   diagFT(vec(Rₑ.xy))
+        diagFT(vec(Rₑ.yx))   diagFT(vec(Rₑ.yy))
+    ]
+    R̃ₘ = [
+        diagFT(vec(Rₘ.xx))   diagFT(vec(Rₘ.xy))
+        diagFT(vec(Rₘ.yx))   diagFT(vec(Rₘ.yy))
+    ]
+    ωϵ, ωμ = pw.ω .* _get_ϵμ(um)
+    kz = Diagonal(repeat(vec(_get_kz(pw, um)), 2))
+    _K = _get_K_components(pw)
+    K = [
+        Diagonal(vec(_K.xx)) Diagonal(vec(_K.xy))
+        Diagonal(vec(_K.yx)) Diagonal(vec(_K.yy))
+    ]
+    Ω = K - (ωϵ * ωμ)*I
+    n = length(pw)
+    C = [
+        (0I)(n) (-I)(n)
+        (1I)(n) (0I)(n)
+    ]
+    out, inc = _gstcMatrix(fs,
+        _set_electric_terms(fs, rsₑ, R̃ₑ, kz, ωϵ, ωμ, Ω, C)...,
+        _set_magnetic_terms(fs, rsₘ, R̃ₘ, kz, ωϵ, ωμ, Ω, C)...,
+    )
+    out\inc
+end
+
+for (kind, ksym) in ((:electric, :ₑ), (:magnetic, :ₘ)), (rs, rsym) in ((:Impedance, :Z), (:Admittance, :Y))
+    @eval function $(Symbol(:_get_, kind, :_response_components))(::$rs, pw, sheet)
+        (
+            xx = $(Symbol(rsym, ksym, :ˣˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            xy = $(Symbol(rsym, ksym, :ˣʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            yx = $(Symbol(rsym, ksym, :ʸˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            yy = $(Symbol(rsym, ksym, :ʸʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+        )
+    end
+end
+
+function _get_K_components(pw::PlaneWaves{2})
+    (
+        xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
+        xy = [k⃗[1] .* k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
+        yx = [k⃗[2] .* k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
+        yy = [k⃗[2] .* k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
+    )
+end
+
+_set_electric_terms(::HField, ::Impedance,  R̃, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = (Ω₁ * Ω₂ * -C * R̃ * C, Ω₂ * (0.5ωμ₁ * kz₁), Ω₁ * (0.5ωμ₂ * kz₂))
+_set_electric_terms(::HField, ::Admittance, R̃, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = (I, -C * R̃ * C * Ω₁ * inv(2ωϵ₁ * kz₁), -C * R̃ * C * Ω₁ * inv(2ωϵ₂ * kz₂))
+_set_magnetic_terms(::HField, ::Impedance,  R̃, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = (R̃ * -C * Ω₁ * C * inv(2ωϵ₁ * kz₁), R̃ * -C * Ω₂ * C * inv(0.5ωϵ₂ * kz₂), I)
+_set_magnetic_terms(::HField, ::Admittance, R̃, kz₁, kz₂, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = (Ω₂ * (2ωμ₁ * kz₁), Ω₁ * (2ωμ₂ * kz₂), Ω₁ * Ω₂ * R̃)
+
+_set_electric_terms(::HField, ::Impedance,  R̃, kz, ωϵ, ωμ, Ω, C) = (Ω * -C * R̃ * C, 0.5ωμ * kz)
+_set_electric_terms(::HField, ::Admittance, R̃, kz, ωϵ, ωμ, Ω, C) = (I, -C * R̃ * C * Ω * inv(2ωϵ * kz))
+_set_magnetic_terms(::HField, ::Impedance,  R̃, kz, ωϵ, ωμ, Ω, C) = (R̃ * -C * Ω * C * inv(0.5ωϵ * kz), I)
+_set_magnetic_terms(::HField, ::Admittance, R̃, kz, ωϵ, ωμ, Ω, C) = (2ωμ * kz, Ω * R̃)
+
+_set_electric_terms(::EField, rs, R̃, kz, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = _set_magnetic_terms(HField(), rs, R̃, kz, ωμ₁, ωϵ₁, ωμ₂, ωϵ₂, Ω₁, Ω₂, C)
+_set_magnetic_terms(::EField, rs, R̃, kz, ωϵ₁, ωμ₁, ωϵ₂, ωμ₂, Ω₁, Ω₂, C) = _set_electric_terms(HField(), rs, R̃, kz, ωμ₁, ωϵ₁, ωμ₂, ωϵ₂, Ω₁, Ω₂, C)
+
+_set_electric_terms(::EField, rs, R̃, kz, ωϵ, ωμ, Ω, C) = _set_magnetic_terms(HField(), rs, R̃, kz, ωμ, ωϵ, Ω, C)
+_set_magnetic_terms(::EField, rs, R̃, kz, ωϵ, ωμ, Ω, C) = _set_electric_terms(HField(), rs, R̃, kz, ωμ, ωϵ, Ω, C)

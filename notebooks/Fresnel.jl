@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -305,9 +305,26 @@ case where the metafilm has different media on either side.
 The form of the GSTC is the same as before, except the impedance matrices are modified functions of the actual material parameters
 "
 
+# ╔═╡ 00000000-0000-0000-0000-000000000001
+PLUTO_PROJECT_TOML_CONTENTS = """
+[deps]
+"""
+
+# ╔═╡ 00000000-0000-0000-0000-000000000002
+PLUTO_MANIFEST_TOML_CONTENTS = """
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.7.0"
+manifest_format = "2.0"
+
+[deps]
+"""
+
 # ╔═╡ Cell order:
 # ╟─83d9578c-3960-486c-ad3d-b4449f7bae6f
 # ╟─687627f9-6938-4d7a-9395-9f1783b8a449
 # ╟─860dc600-c86d-43a2-a88a-eb876eecbd6e
 # ╟─271422af-db75-4373-be1c-104745f941bf
 # ╟─325b8359-ebac-434b-bba1-31aba05c2c39
+# ╟─00000000-0000-0000-0000-000000000001
+# ╟─00000000-0000-0000-0000-000000000002
