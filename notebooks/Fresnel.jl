@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ c24044bc-2fc3-4e34-b99c-7dc4ec6a7515
+import Pkg
+
+# ╔═╡ 42da96ce-8122-4aa0-99d6-635f68db6e66
+Pkg.activate(".")
+
+# ╔═╡ 88e46392-1fbc-4079-8207-dd5b3ac01d7d
+using DeltaRCWA
+
+# ╔═╡ 16316725-c608-49a5-b90c-8caff973683a
+using Plots
+
 # ╔═╡ 83d9578c-3960-486c-ad3d-b4449f7bae6f
 md"
 # Fresnel scattering at a dielectric interface
@@ -12,8 +24,39 @@ Note that our GSTCs simplify to continuity of the tangential fields when
 the surface conductivities vanish.
 Therefore, our scattering matrix should recover the Fresnel coefficients
 when we allow the medium on each side of the interface to differ.
+
+The analytical solution for this problem is known and I will just cite it [here](https://homerreid.github.io/scuff-em-documentation/tests/FresnelScattering/FresnelScattering/)
 ``\newcommand{\bm}{\boldsymbol}``
 "
+
+# ╔═╡ 6cbc5f34-fe14-45e8-9fee-9787d76ad0fe
+struct EmptySheet <: Sheet end
+
+# ╔═╡ fb8df44c-a354-42de-9e99-df64dd4c5727
+DeltaRCWA.ElectricResponseStyle(::Type{EmptySheet}) = Admittance()
+
+# ╔═╡ f3d36c35-c09b-483f-bb41-046b6ecd0773
+const Water = UniformMedium{1.7, 1.0}()
+
+# ╔═╡ e899dbc0-03bb-4a13-9c09-bfad33e5c1d3
+const stack = SheetStack(EmptySheet(), (Vacuum, Water))
+
+# ╔═╡ 43d29086-510d-4870-94b7-2ff5ff34324b
+n = 100 # number of grid points
+
+# ╔═╡ 5377ae36-32fc-41c5-bd03-c737422b17f4
+prob = DeltaRCWAProblem(stack, ((n, 1.0), ), 10.0, [i==2 ? 1 : 0 for i in 1:n], zeros(n))
+
+# ╔═╡ 65c2e966-8cb0-4d76-96db-18f9045695a3
+sol = solve(prob)
+
+# ╔═╡ bf1213cd-2ec1-4d1e-8ebc-5be5af26621c
+plot(sol; combine=true)
+
+# ╔═╡ ba0c4060-f9d4-43b6-bc31-b48dcd81dd91
+md"""
+``k_z = \sqrt{\omega^2 \epsilon \mu - k_x^2 - k_y^2}``
+"""
 
 # ╔═╡ 687627f9-6938-4d7a-9395-9f1783b8a449
 md"""
@@ -305,26 +348,22 @@ case where the metafilm has different media on either side.
 The form of the GSTC is the same as before, except the impedance matrices are modified functions of the actual material parameters
 "
 
-# ╔═╡ 00000000-0000-0000-0000-000000000001
-PLUTO_PROJECT_TOML_CONTENTS = """
-[deps]
-"""
-
-# ╔═╡ 00000000-0000-0000-0000-000000000002
-PLUTO_MANIFEST_TOML_CONTENTS = """
-# This file is machine-generated - editing it directly is not advised
-
-julia_version = "1.7.0"
-manifest_format = "2.0"
-
-[deps]
-"""
-
 # ╔═╡ Cell order:
 # ╟─83d9578c-3960-486c-ad3d-b4449f7bae6f
+# ╠═c24044bc-2fc3-4e34-b99c-7dc4ec6a7515
+# ╠═42da96ce-8122-4aa0-99d6-635f68db6e66
+# ╠═88e46392-1fbc-4079-8207-dd5b3ac01d7d
+# ╠═6cbc5f34-fe14-45e8-9fee-9787d76ad0fe
+# ╠═fb8df44c-a354-42de-9e99-df64dd4c5727
+# ╠═f3d36c35-c09b-483f-bb41-046b6ecd0773
+# ╠═e899dbc0-03bb-4a13-9c09-bfad33e5c1d3
+# ╠═43d29086-510d-4870-94b7-2ff5ff34324b
+# ╠═5377ae36-32fc-41c5-bd03-c737422b17f4
+# ╠═65c2e966-8cb0-4d76-96db-18f9045695a3
+# ╠═16316725-c608-49a5-b90c-8caff973683a
+# ╠═bf1213cd-2ec1-4d1e-8ebc-5be5af26621c
+# ╟─ba0c4060-f9d4-43b6-bc31-b48dcd81dd91
 # ╟─687627f9-6938-4d7a-9395-9f1783b8a449
 # ╟─860dc600-c86d-43a2-a88a-eb876eecbd6e
 # ╟─271422af-db75-4373-be1c-104745f941bf
 # ╟─325b8359-ebac-434b-bba1-31aba05c2c39
-# ╟─00000000-0000-0000-0000-000000000001
-# ╟─00000000-0000-0000-0000-000000000002
