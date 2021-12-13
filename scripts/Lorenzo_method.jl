@@ -5,8 +5,8 @@ struct FunctionSheet{A <: Function, B <: Function} <: DeltaRCWA.Sheet
     μ::B
 end
 
-DeltaRCWA.Zₑˣˣ(sheet::FunctionSheet, x) = sheet.μ(x)
-DeltaRCWA.Yₘʸʸ(sheet::FunctionSheet, x) = sheet.η(x)
+DeltaRCWA.Zₑˣˣ(sheet::FunctionSheet, x) = 0.5sheet.μ(x[1])
+DeltaRCWA.Yₘʸʸ(sheet::FunctionSheet, x) = 2sheet.η(x[1])
 
 """
     compute_DeltaRCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)
@@ -23,11 +23,13 @@ k:: the wavenumber/frequency of the incident planewave (assumed TM polarization)
 i:: the index of the incident planewave in the Fourier basis
 
 Returns:
-NamedTuple with fields:
-I₁:: an array of the incident fields in the position basis for y<0
-O₁:: an array of the outgoing fields in the position basis for y<0
-I₂:: an array of the incident fields in the position basis for y>0
-O₂:: an array of the outgoing fields in the position basis for y>0
+x:: the positions of the grid points
+kz₁:: the values of the wavevector in the z component for y<0
+kz₂:: the values of the wavevector in the z component for y>0
+Ĩ₁:: an array of the incident fields in the Fourier basis for y<0
+Õ₁:: an array of the outgoing fields in the Fourier basis for y<0
+Ĩ₂:: an array of the incident fields in the Fourier basis for y>0
+Õ₂:: an array of the outgoing fields in the Fourier basis for y>0
 """
 function compute_DeltaRCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)
     prob = DeltaRCWA.DeltaRCWAProblem(
@@ -35,16 +37,11 @@ function compute_DeltaRCWA_method(η::Function, μ::Function, L::Float64, N::Int
         ((N, L), ),
         k,
         [i == j ? 1.0 : 0.0 for j in 1:N],
-        zeros(N)
+        zeros(N),
     )
     sol = DeltaRCWA.solve(prob)
-    y⃗ = range(-L, L, length=2N)
-    y⃗₁ = y⃗[y⃗ .< 0]
-    y⃗₂ = y⃗[y⃗ .> 0]
-    β⃗ = prob.modes.kz
-    O₁ = rotr90(bfft(exp.(-β⃗ * transpose(im * y⃗₁)) .* sol.O₁, 1))
-    I₂ = rotr90(bfft(exp.(-β⃗ * transpose(im * y⃗₂)) .* sol.I₂, 1))
-    I₁ = rotr90(bfft(exp.( β⃗ * transpose(im * y⃗₁)) .* sol.I₁, 1))
-    O₂ = rotr90(bfft(exp.( β⃗ * transpose(im * y⃗₂)) .* sol.O₂, 1))
-    (I₁=I₁, O₁=O₁, I₂=I₂, O₂=O₂)
+    x = sol.pw.x⃗[1]
+    kz₁ = DeltaRCWA._get_kz(sol.pw, sol.stack.media[1])
+    kz₂ = DeltaRCWA._get_kz(sol.pw, sol.stack.media[end])
+    (x=x, kz₁=kz₁, kz₂=kz₂, Ĩ₁=sol.I₁, Õ₁=sol.O₁, Ĩ₂=sol.I₂, Õ₂=sol.O₂)
 end
