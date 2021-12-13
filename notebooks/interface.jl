@@ -22,9 +22,6 @@ using LinearMaps
 # ╔═╡ 65324c70-07b4-46b8-9d6f-3b7fc58d3fbf
 using Plots
 
-# ╔═╡ 1045d269-d9d1-47c9-a663-2b38f85e825e
-using LinearAlgebra
-
 # ╔═╡ 0a627414-a5af-4fc3-852f-c98105e4d860
 md"
 ## Using `DeltaRCWA`'s interface
@@ -166,7 +163,7 @@ L = λ/abs(d) # unit-cell width/periodicity of ComplexExpSheet
 dims = ((Nmodes, L), )
 
 # ╔═╡ 6bfcdf25-1f4e-4724-a4bc-14a0222e2c2d
-sheet = ComplexExpSheet{Float64}(θ, θᵗ, ω, d)
+sheet = ComplexExpSheet{Float64}(θ, θᵗ, k₀, d)
 
 # ╔═╡ a13facc7-06b6-4559-bf2f-a43afb3ffcfe
 md"
@@ -287,10 +284,10 @@ The `DeltaRCWASolution` objects can have recipes to analyze and visualize them.
 "
 
 # ╔═╡ 77400f50-4e25-4fe6-8a0a-16f6cf6cb150
-plot(sol, combine=true, aspect_ratio=1, clim=(-1,1), color=:RdBu)
+plot(sol, combine=true, aspect_ratio=1, color=:RdBu)
 
 # ╔═╡ d8d2123c-92ce-422e-bb68-bb09e689d44c
-plot(stacksol, combine=true, clim=(-1, 1), color=:RdBu, aspect_ratio=1)
+plot(stacksol, combine=true, color=:RdBu, aspect_ratio=1)
 
 # ╔═╡ 10442fb5-d595-4ef6-a1e9-4d588609dbaf
 md"""
@@ -341,7 +338,7 @@ begin
 	CI₂ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol3d.I₂[NMmodes.+(1:Nmodes)], 1))
 	CI₁ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₁)) .* sol3d.I₁[NMmodes.+(1:Nmodes)], 1))
 	CO₂ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₂)) .* sol3d.O₂[NMmodes.+(1:Nmodes)], 1))
-	heatmap(sol.pw.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
+	heatmap(sol.pw.x⃗, z⃗, real.(cat(CI₁ + CO₁, CI₂ + CO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu)
 end
 
 # ╔═╡ 301ad780-83a1-46f3-a027-ef8a4ca198f6
@@ -357,47 +354,8 @@ begin
 	DI₂ = rotr90(DeltaRCWA.bfft(exp.(-kz * transpose(im * z⃗₂)) .* sol3dstack.I₂[NMmodes.+(1:Nmodes)], 1))
 	DI₁ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₁)) .* sol3dstack.I₁[NMmodes.+(1:Nmodes)], 1))
 	DO₂ = rotr90(DeltaRCWA.bfft(exp.( kz * transpose(im * z⃗₂)) .* sol3dstack.O₂[NMmodes.+(1:Nmodes)], 1))
-	heatmap(sol.pw.x⃗, z⃗, real.(cat(DI₁ + DO₁, DI₂ + DO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu,clim=(-1.0,1.0))
-end
-
-# ╔═╡ 01ce775c-56cc-4bc4-bcd3-6253401686f4
-md"""
-## Fresnel scattering
-
-We can also
-"""
-
-# ╔═╡ a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-struct TrivialSheet <: Sheet end
-
-# ╔═╡ a688edd1-e73f-4cd9-b4ee-0d9f9c4914b5
-DeltaRCWA.ElectricResponseStyle(::Type{TrivialSheet}) = Admittance()
-
-# ╔═╡ 6ec228b1-472a-486b-bf0b-8f055e9cee6b
-Fresnelstack = SheetStack(TrivialSheet(), (Vacuum, UniformMedium{1.7, 1.0}()))
-
-# ╔═╡ 879a9574-d830-41c2-9b96-833728a97718
-Fresnelprob = DeltaRCWAProblem(Fresnelstack, dims, ω, [n==3 ? 1 : 0 for n in 1:Nmodes], I₂)
-# Fresnelprob = DeltaRCWAProblem(Fresnelstack, dims3d, ω, hcat(I₁ˣ, [n==3 ? 1 : 0 for n in 1:Nmodes, m in 1:Mmodes]), hcat(I₂ˣ, I₂ʸ))
-
-# ╔═╡ 2368f08b-7538-4297-9042-0e01187e7aab
-Fresnelsol = solve(Fresnelprob)
-
-# ╔═╡ 270c6aff-d833-45c7-8020-849b2857dd0b
-plot(Fresnelsol)
-
-# ╔═╡ 979f7fed-7123-4c02-b698-b7e47e71d107
-SOS = smatrix(Matrix, FieldStyle(Fresnelprob), Fresnelprob.pw, Fresnelprob.stack)
-
-# ╔═╡ d577cf47-7ddc-46e3-b1a5-66831f51fc20
-# if scattering matrix is unitary, this should be zero
-norm(SOS'SOS - I) / norm(SOS'SOS)
-
-# ╔═╡ 7f777ca5-27a9-4b83-b23a-29053b1c03b0
-norm(vcat(Fresnelsol.I₁, Fresnelsol.I₂))
-
-# ╔═╡ b09bff4c-7391-4808-8a88-3ae226059e43
-norm(vcat(Fresnelsol.O₁, Fresnelsol.O₂))
+	heatmap(sol.pw.x⃗, z⃗, real.(cat(DI₁ + DO₁, DI₂ + DO₂; dims=1)), xguide="x", yguide="z", aspect_ratio=:equal,color=:RdBu)
+	end
 
 # ╔═╡ Cell order:
 # ╠═628d5d5d-2753-47e3-a02b-21b4a89a159e
@@ -464,15 +422,3 @@ norm(vcat(Fresnelsol.O₁, Fresnelsol.O₂))
 # ╠═301ad780-83a1-46f3-a027-ef8a4ca198f6
 # ╠═f155c239-2001-4fd1-84b2-558827c7cdd2
 # ╠═d7372f04-0ede-42ee-b9f5-0e96a2004d68
-# ╠═01ce775c-56cc-4bc4-bcd3-6253401686f4
-# ╠═a3035662-3261-43c7-a6cb-2cae4c8b8b0f
-# ╠═a688edd1-e73f-4cd9-b4ee-0d9f9c4914b5
-# ╠═6ec228b1-472a-486b-bf0b-8f055e9cee6b
-# ╠═879a9574-d830-41c2-9b96-833728a97718
-# ╠═2368f08b-7538-4297-9042-0e01187e7aab
-# ╠═270c6aff-d833-45c7-8020-849b2857dd0b
-# ╠═979f7fed-7123-4c02-b698-b7e47e71d107
-# ╠═1045d269-d9d1-47c9-a663-2b38f85e825e
-# ╠═d577cf47-7ddc-46e3-b1a5-66831f51fc20
-# ╠═7f777ca5-27a9-4b83-b23a-29053b1c03b0
-# ╠═b09bff4c-7391-4808-8a88-3ae226059e43
