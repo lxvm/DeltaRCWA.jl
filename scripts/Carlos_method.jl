@@ -1,6 +1,7 @@
 nbdir = ENV["HOME"] * "/.julia/dev/DeltaRCWA/notebooks/"
 include("$(nbdir)NystromMethodQP.jl")
-
+import FFTW: fftfreq
+import LinearAlgebra: I, Diagonal
 
 """
     compute_BIE_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)
@@ -20,6 +21,7 @@ Keyword arguments:
 method:: the Nystrom method to be used (choose default "MK" or "Alpert)
 NC:: the number of cells in a windowed sum for Green's function (default 5)
 NP:: the number of points in BIE discretization per wavelength (default 20)
+s:: a scale factor to stretch the y coordinate of the output grid
 
 Returns:
 NamedTuple with fields:
@@ -30,10 +32,10 @@ O₂:: an array of the outgoing fields in the position basis for y>0
 """
 function compute_BIE_method(
     η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int;
-    method="MK", NC=5, NP=20
+    method="MK", NC=5, NP=20, s=1
 )
     dx = L/N
-    k⃗ = (2π)*fftfreq(N, 1/dx)
+    k⃗ = 2π*fftfreq(N, 1/dx)
     β⃗ = @. sqrt(Complex(k^2 - k⃗^2))
     α = k⃗[i]
     β = β⃗[i]
@@ -46,7 +48,7 @@ function compute_BIE_method(
     ]
     # In this case, Γ is just a line segment from (L/2,0) to (-L/2,0). 
     # This matrix defines the orientation of the curve
-            #starting node  #ending node  #domain on the right #domian on the left  
+            #starting node  #ending node  #domain on the right #domain on the left  
     info = [1               2             1                    0]
     # The parameter M defines the number of boundary points to used in the discretization of the BIE
     λ = 2π/k
@@ -75,14 +77,14 @@ function compute_BIE_method(
     φ⁻ = 0.5*(ψ⁺-ψ⁻)
 
     x = range(0, step=dx, length=N)
-    y = range(-L, L, length=2N)
+    y = range(-s*L, s*L, length=2N)
     y₁ = y[y .< 0] # y points in domain below sheet
     y₂ = y[y .> 0] # y points in domain above sheet
 
-    ver⁺ = [L 0;-L 0;-L 2L;L 2L]
+    ver⁺ = [L 0;-L 0;-L 2s*L;L 2s*L]
     Ω⁺ = isin(x,y,ver⁺)
 
-    ver⁻ = [L 0;-L 0;-L -2L;L -2L]
+    ver⁻ = [L 0;-L 0;-L -2s*L;L -2s*L]
     Ω⁻ = isin(x,y,ver⁻)
 
     UInc = reshape(uInc.(Ω⁺.pts[:,1],Ω⁺.pts[:,2]),Ω⁺.Ny,Ω⁺.Nx)
@@ -102,5 +104,5 @@ function compute_BIE_method(
     Ω⁻mask = isfinite.(Ω⁻.In)
     I₁ = reshape(UInc[Ω⁻mask], length.((y₁, x)))
     O₁ = reshape(U⁻[Ω⁻mask] .- UInc[Ω⁻mask], length.((y₁, x)))
-    (I₁=I₁, O₁=O₁, I₂=I₂, O₂=O₂)
+    (x=x, y₁=y₁, y₂=y₂, I₁=I₁, O₁=O₁, I₂=I₂, O₂=O₂)
 end
