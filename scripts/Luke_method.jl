@@ -1,3 +1,6 @@
+import LinearAlgebra: I, Diagonal
+import FFTW: fftfreq, fft, ifft
+
 """
     compute_RCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)
 
@@ -14,18 +17,18 @@ i:: the index of the incident planewave in the Fourier basis
 
 Returns:
 NamedTuple with fields:
-I₁:: an array of the incident fields in the position basis for y<0
-O₁:: an array of the outgoing fields in the position basis for y<0
-I₂:: an array of the incident fields in the position basis for y>0
-O₂:: an array of the outgoing fields in the position basis for y>0
+x:: the positions of the grid points
+kz₁:: the values of the wavevector in the z component for y<0
+kz₂:: the values of the wavevector in the z component for y>0
+Ĩ₁:: an array of the incident fields in the Fourier basis for y<0
+Õ₁:: an array of the outgoing fields in the Fourier basis for y<0
+Ĩ₂:: an array of the incident fields in the Fourier basis for y>0
+Õ₂:: an array of the outgoing fields in the Fourier basis for y>0
 """
 function compute_RCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::Float64, i::Int)
     # discretization parameters
     dx = L/N
     x⃗ = range(0, step=dx, length=N)
-    y⃗ = range(-L, L, length=2N)
-    y⃗₁ = y⃗[y⃗ .< 0]
-    y⃗₂ = y⃗[y⃗ .> 0]
     k⃗ = 2*pi*fftfreq(N, 1/dx)
     β⃗ = @. sqrt(Complex(k^2 - k⃗^2))
     # construct Fourier-basis operators
@@ -48,10 +51,5 @@ function compute_RCWA_method(η::Function, μ::Function, L::Float64, N::Int, k::
     inc = [Ĩ₁; Ĩ₂]
     scat = S*inc
     Õ₁, Õ₂ = scat[1:N], scat[N+1:2N]
-    # convert mode amplitudes to grid in position basis
-    O₁ = rotr90(bfft(exp.(-β⃗ * transpose(im * y⃗₁)) .* Õ₁, 1))
-    I₂ = rotr90(bfft(exp.(-β⃗ * transpose(im * y⃗₂)) .* Ĩ₂, 1))
-    I₁ = rotr90(bfft(exp.( β⃗ * transpose(im * y⃗₁)) .* Ĩ₁, 1))
-    O₂ = rotr90(bfft(exp.( β⃗ * transpose(im * y⃗₂)) .* Õ₂, 1))
-    (I₁=I₁, O₁=O₁, I₂=I₂, O₂=O₂)
+    (x=x⃗, kz₁=β⃗, kz₂=β⃗, Ĩ₁=Ĩ₁, Õ₁=Õ₁, Ĩ₂=Ĩ₂, Õ₂=Õ₂)
 end
