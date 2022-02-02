@@ -1,7 +1,7 @@
 export UniformMedium, Vacuum
 
 """
-    UniformMedium(ϵ, μ)
+    UniformMedium{ϵ, μ}()
 
 Represents a medium with a constant permitivitty and permeability
 Units are such that ϵ, μ are relative to the vacuum value(ϵ=μ=1)
