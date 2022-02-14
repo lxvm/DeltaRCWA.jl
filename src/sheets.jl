@@ -88,15 +88,26 @@ function __sMatrix(fs, pol, pw, rsₑ, rsₘ, sheet, um::T, ::T) where T<:Unifor
     out\inc
 end
 
-_get_electric_response(::TM, ::Admittance, pw, sheet) = Yₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_electric_response(::TM, ::Impedance,  pw, sheet) = Zₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_magnetic_response(::TM, ::Admittance, pw, sheet) = Yₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_magnetic_response(::TM, ::Impedance,  pw, sheet) = Zₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# v1, mutates arrays
+# _get_electric_response(::TM, ::Admittance, pw, sheet) = Yₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_electric_response(::TM, ::Impedance,  pw, sheet) = Zₑˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_magnetic_response(::TM, ::Admittance, pw, sheet) = Yₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_magnetic_response(::TM, ::Impedance,  pw, sheet) = Zₘʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
 
-_get_electric_response(::TE, ::Admittance, pw, sheet) = Yₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_electric_response(::TE, ::Impedance,  pw, sheet) = Zₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_magnetic_response(::TE, ::Admittance, pw, sheet) = Yₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
-_get_magnetic_response(::TE, ::Impedance,  pw, sheet) = Zₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_electric_response(::TE, ::Admittance, pw, sheet) = Yₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_electric_response(::TE, ::Impedance,  pw, sheet) = Zₑʸʸ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_magnetic_response(::TE, ::Admittance, pw, sheet) = Yₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# _get_magnetic_response(::TE, ::Impedance,  pw, sheet) = Zₘˣˣ.(Ref(sheet), Iterators.product(pw.x⃗...))
+# v2, works with zygote
+_get_electric_response(::TM, ::Admittance, pw, sheet) = map(Yₑˣˣ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_electric_response(::TM, ::Impedance,  pw, sheet) = map(Zₑˣˣ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TM, ::Admittance, pw, sheet) = map(Yₘʸʸ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TM, ::Impedance,  pw, sheet) = map(Zₘʸʸ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+
+_get_electric_response(::TE, ::Admittance, pw, sheet) = map(Yₑʸʸ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_electric_response(::TE, ::Impedance,  pw, sheet) = map(Zₑʸʸ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TE, ::Admittance, pw, sheet) = map(Yₘˣˣ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
+_get_magnetic_response(::TE, ::Impedance,  pw, sheet) = map(Zₘˣˣ, fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...))
 
 """
     diagFT(A::AbstractArray{<:Number, ndim}) where ndim
