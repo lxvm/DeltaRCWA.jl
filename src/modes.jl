@@ -1,9 +1,9 @@
 export PlaneWaves, PolarizationStyle, TE, TM, Coupled
 
-struct PlaneWaves{N}
+struct PlaneWaves{N, T}
     ω::Float64
     dims::NTuple{N, Tuple{Int64, Float64}}
-    x⃗::NTuple{N, StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}
+    x⃗::NTuple{N, T}
     k⃗::NTuple{N, Frequencies{Float64}}
 end
 
@@ -16,7 +16,10 @@ of grid points per unit cell in that periodic dimension, and the Float64 gives
 the lattice constant in that periodic dimension (length of unit cell).
 """
 function PlaneWaves(ω::Float64, dims::Tuple{Vararg{Tuple{Int64, Float64}}})
-    x⃗ = Tuple(range(0, step=e[2] / e[1], length=e[1]) for e in dims)
+    # v1, needs adjoint constructors for StepRangeLen and Base.TwicePrecision
+    # x⃗ = Tuple(range(0, step=e[2] / e[1], length=e[1]) for e in dims)
+    # v2, works with Zygote
+    x⃗ = Tuple([i * e[2] / e[1] for i in 1:e[1]] for e in dims)
     k⃗ = Tuple(2π * fftfreq(e[1], e[1] / e[2]) for e in dims)
     PlaneWaves(ω, dims, x⃗, k⃗)
 end
@@ -30,5 +33,5 @@ struct TM <: PolarizationStyle end
 struct Coupled <: PolarizationStyle end
 
 PolarizationStyle(pw::PlaneWaves) = PolarizationStyle(typeof(pw))
-PolarizationStyle(::Type{PlaneWaves{1}}) = TM()
-PolarizationStyle(::Type{PlaneWaves{2}}) = Coupled()
+PolarizationStyle(::Type{<:PlaneWaves{1}}) = TM()
+PolarizationStyle(::Type{<:PlaneWaves{2}}) = Coupled()

@@ -16,6 +16,7 @@ using RecipesBase
 using KrylovKit: linsolve
 using IterativeSolvers: gmres
 using LinearMaps: LinearMap, BlockMap
+using ChainRulesCore
 
 export smatrix
 """
@@ -39,5 +40,6 @@ include("stacks.jl")
 include("DeltaRCWAProblem.jl")
 include("star_products.jl")
 include("plotting.jl")
+include("adjoints.jl")
 
 end
