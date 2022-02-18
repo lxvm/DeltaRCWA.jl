@@ -295,20 +295,26 @@ end
 for (kind, ksym) in ((:electric, :ₑ), (:magnetic, :ₘ)), (rs, rsym) in ((:Impedance, :Z), (:Admittance, :Y))
     @eval function $(Symbol(:_get_, kind, :_response_components))(::$rs, pw, sheet)
         (
-            xx = $(Symbol(rsym, ksym, :ˣˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
-            xy = $(Symbol(rsym, ksym, :ˣʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
-            yx = $(Symbol(rsym, ksym, :ʸˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
-            yy = $(Symbol(rsym, ksym, :ʸʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            # v1, mutates arrays
+            # xx = $(Symbol(rsym, ksym, :ˣˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            # xy = $(Symbol(rsym, ksym, :ˣʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            # yx = $(Symbol(rsym, ksym, :ʸˣ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            # yy = $(Symbol(rsym, ksym, :ʸʸ)).(Ref(sheet), Iterators.product(pw.x⃗...)),
+            # v2, works with Zygote
+            xx = map($(Symbol(rsym, ksym, :ˣˣ)), fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...)),
+            xy = map($(Symbol(rsym, ksym, :ˣʸ)), fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...)),
+            yx = map($(Symbol(rsym, ksym, :ʸˣ)), fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...)),
+            yy = map($(Symbol(rsym, ksym, :ʸʸ)), fill(sheet, length.(pw.x⃗)), Iterators.product(pw.x⃗...)),
         )
     end
 end
 
 function _get_K_components(pw::PlaneWaves{2})
     (
-        xx = [k⃗[1] .* k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
-        xy = [k⃗[1] .* k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
-        yx = [k⃗[2] .* k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
-        yy = [k⃗[2] .* k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
+        xx = [k⃗[1] * k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
+        xy = [k⃗[1] * k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
+        yx = [k⃗[2] * k⃗[1] for k⃗ in Iterators.product(pw.k⃗...)],
+        yy = [k⃗[2] * k⃗[2] for k⃗ in Iterators.product(pw.k⃗...)],
     )
 end
 

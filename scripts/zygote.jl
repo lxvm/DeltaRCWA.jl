@@ -16,27 +16,42 @@ function DeltaRCWA.Yₘʸʸ(sheet::ComplexExpSheet, x⃗::Tuple)
     -2sin(sheet.θ)*(1+exp(1im*sheet.k*sheet.d*x⃗[1]))
 end
 
-const θⁱ = π/2 # incidence angle, measured counter-clockwise from +x direction
-const θᵗ = π/3 # desired transmitted field angle
-const d = cos(θᵗ)-cos(θⁱ) # design parameter
-const k₀ = 10.0 # wavenumber that attains the metasurface design goals
-const λ₀ = 2π/k₀ # wavelength that attains the metasurface design goals
-const L₀ = λ₀/abs(d) # period of metasurface
-const sheet = ComplexExpSheet(θⁱ, k₀, d) # sheet to scatter
-
-const L=L₀ # length of domain (some integer multiple of period of metasurface)
-const k=1.1k₀ # wavenumber of incident field
-const n = 20 # number of modes to scatter
-const dims = ((n, L),)
-const I₁ = [i == 1 ? 1.0 : 0.0 for i in 1:n]
-const I₂ = zeros(n)
-
-
-function cost(sol::DeltaRCWA.DeltaRCWASolution{1})
+function cost(sol::DeltaRCWA.DeltaRCWASolution)
     norm(sol.O₂) + norm(sol.O₁)
 end
 
-ans = gradient(s -> cost(solve(DeltaRCWAProblem(s, dims, k, I₁, I₂))), sheet)
+function grad2d()
+    θⁱ = π/2 # incidence angle, measured counter-clockwise from +x direction
+    θᵗ = π/3 # desired transmitted field angle
+    d = cos(θᵗ)-cos(θⁱ) # design parameter
+    k₀ = 10.0 # wavenumber that attains the metasurface design goals
+    λ₀ = 2π/k₀ # wavelength that attains the metasurface design goals
+    L₀ = λ₀/abs(d) # period of metasurface
+    sheet = ComplexExpSheet(θⁱ, k₀, d) # sheet to scatter
 
-# MWE of error: cannot broadcast over a product Iterator
-# julia> gradient(k -> norm(sum.(Iterators.product(k...))), (1:10,))
+    L=L₀ # length of domain (some integer multiple of period of metasurface)
+    k=1.1k₀ # wavenumber of incident field
+    n = 20 # number of modes to scatter
+    dims = ((n, L),)
+    I₁ = [i == 1 ? 1.0 : 0.0 for i in 1:n]
+    I₂ = zeros(n)
+    gradient(s -> cost(solve(DeltaRCWAProblem(s, dims, k, I₁, I₂))), sheet)
+end # ((θ = -3.831612187550387e-8, k = 6.62037566523508e10, d = 1.324075133047017e12),)
+
+function grad3d()
+    θⁱ = π/2 # incidence angle, measured counter-clockwise from +x direction
+    θᵗ = π/3 # desired transmitted field angle
+    d = cos(θᵗ)-cos(θⁱ) # design parameter
+    k₀ = 10.0 # wavenumber that attains the metasurface design goals
+    λ₀ = 2π/k₀ # wavelength that attains the metasurface design goals
+    L₀ = λ₀/abs(d) # period of metasurface
+    sheet = ComplexExpSheet(θⁱ, k₀, d) # sheet to scatter
+
+    L=L₀ # length of domain (some integer multiple of period of metasurface)
+    k=1.1k₀ # wavenumber of incident field
+    n = 10 # number of modes to scatter
+    dims = ((n, L), (1, 1.0))
+    I₁ = [i == j == 1 ? 1.0 : 0.0 for i in 1:n, j in 1:2]
+    I₂ = zeros(n, 2)
+    gradient(s -> cost(solve(DeltaRCWAProblem(s, dims, k, I₁, I₂))), sheet)
+end # ((θ = -0.0, k = 0.0, d = 0.0),)
