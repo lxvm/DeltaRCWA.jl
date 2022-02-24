@@ -95,7 +95,7 @@ read_sim(file, name) = merge(recover_sim(name), (sol=file[name],))
 function recover_sim(name)
     parts = split(name, "/")
     method = eval(Symbol("compute_" * parts[end] * "_method"))
-    sheet = eval(Symbol(parts[1]))(parse(Float64, parts[2][2:end]))
+    sheet = eval(Symbol(parts[1]))(; L=parse(Float64, parts[2][2:end]))
     param = (n=parse(Int, parts[5][2:end]), k=parse(Float64, parts[3][1:(length(parts[3])-2)]), i=parse(Int, parts[4][2:end]))
     (method=method, param=param, sheet=sheet)
 end
@@ -129,7 +129,7 @@ function make_convergence_plot(x; b=2, prefix="analyses/")
     exponents = Vector{Float64}(undef, Int(length(x)//2))
     for (i, e) in enumerate(Iterators.partition(x, 2))
         sims = to_position_basis.(collect(e))
-        L2errors[i] = errorL2(get_errors(sims[1].sol, sims[2].sol))
+        L2errors[i] = errorL2(get_errors(sims[1], sims[2]))
         exponents[i] = log2(sims[1].param.n)
     end
     path = prefix * join(split(name_sim(first(x)), "/")[1:4], "/") * "/convergence.png"
@@ -168,3 +168,10 @@ function make_error_plots(x)
     ndims(x) == 5 || error("unexpected ndims: supply all parameters in a vector")
     make_error_plot.(Iterators.partition(x, Int(length(x)//prod(dims[2:5]))))
 end
+
+# typical commands
+# save_sweep(x -> make_field_plot.(x), [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], 1), [imbump(), ])
+# read_sweep(make_convergence_plots, [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
+# read_sweep(make_distance_plots, [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
+# read_sweep(make_error_plots, [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
+# read_sweep(x -> make_param_plot(first(x)), [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
