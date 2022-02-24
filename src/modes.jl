@@ -19,7 +19,7 @@ function PlaneWaves(ω::Float64, dims::Tuple{Vararg{Tuple{Int64, Float64}}})
     # v1, needs adjoint constructors for StepRangeLen and Base.TwicePrecision
     # x⃗ = Tuple(range(0, step=e[2] / e[1], length=e[1]) for e in dims)
     # v2, works with Zygote
-    x⃗ = Tuple([i * e[2] / e[1] for i in 1:e[1]] for e in dims)
+    x⃗ = Tuple([i * e[2] / e[1] for i in 0:(e[1]-1)] for e in dims)
     k⃗ = Tuple(2π * fftfreq(e[1], e[1] / e[2]) for e in dims)
     PlaneWaves(ω, dims, x⃗, k⃗)
 end
