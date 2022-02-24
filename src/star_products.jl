@@ -94,8 +94,8 @@ function ⋆ₛ(A::LinearMap, B::LinearMap)::LinearMap
         z₁ = gmres(I - B₁₁ * A₂₂, z[1:d])
         z₂ = @view z[(d+1):2d]
         vcat(
-            y₁ + A₁₂ * B₁₁ * y₂ + A₁₂ * z₁,
-            B₂₁ * y₂ + z₂ + B₂₁ * A₂₂ * z₁
+            y₁ + A₁₂ * (B₁₁ * y₂ + z₁),
+            B₂₁ * (y₂ + A₂₂ * z₁) + z₂
         )
     end
 end
