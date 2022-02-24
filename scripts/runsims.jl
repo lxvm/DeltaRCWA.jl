@@ -145,13 +145,26 @@ end
 
 function make_distance_plot(x; prefix="analyses/")
     sims = to_position_basis.(collect(x))
-    path = prefix * dirname(name_sim(first(x))) * "/distance.png"
+    path = prefix * dirname(name_sim(first(x))) * "/errordistance.png"
     mkpath(dirname(path))
-    savefig(show_errorbydistance(get_errors(sims[1].sol, sims[2].sol)), path)
+    savefig(show_errorbydistance(get_errors(sims[1], sims[2])), path)
 end
 function make_distance_plots(x)
     dims = size(x) # 1st dim is methods, then n, k, i, examples
     dims[1] == 2 || error("unexpected number of methods: compare exactly two")
     ndims(x) == 5 || error("unexpected ndims: supply all parameters in a vector")
     make_distance_plot.(Iterators.partition(x, Int(length(x)//prod(dims[2:5]))))
+end
+
+function make_error_plot(x; prefix="analyses/")
+    sims = to_position_basis.(collect(x))
+    path = prefix * dirname(name_sim(first(x))) * "/errorfield.png"
+    mkpath(dirname(path))
+    savefig(show_fields(get_errors(sims[1], sims[2]),), path)
+end
+function make_error_plots(x)
+    dims = size(x) # 1st dim is methods, then n, k, i, examples
+    dims[1] == 2 || error("unexpected number of methods: compare exactly two")
+    ndims(x) == 5 || error("unexpected ndims: supply all parameters in a vector")
+    make_error_plot.(Iterators.partition(x, Int(length(x)//prod(dims[2:5]))))
 end
