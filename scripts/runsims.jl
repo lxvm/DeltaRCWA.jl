@@ -1,4 +1,5 @@
 using JLD2
+using FFTW: fft, ifft, bfft, fftfreq
 
 include("Carlos_method.jl")
 include("Luke_method.jl")
@@ -175,3 +176,44 @@ end
 # read_sweep(make_distance_plots, [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
 # read_sweep(make_error_plots, [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
 # read_sweep(x -> make_param_plot(first(x)), [compute_BIE_method, compute_DeltaRCWA_method], gen_params(5:8, [2.2, 1.8], [1]), [imbump(), ])
+
+validate_gstc(sim) = validate_gstc(sim.method, sim)
+function validate_gstc(::typeof(compute_BIE_method), sim)
+    (; sheet, sol, param) = sim
+    Zₑˣˣ = Diagonal(0.5sheet.μ.(sol.x))
+    Yₘʸʸ = Diagonal(2.0sheet.η.(sol.x))
+    HI₁ = vec(sol.I₁[end,:])
+    HI₂ = vec(sol.I₂[1,:])
+    HO₁ = vec(sol.O₁[end,:])
+    HO₂ = vec(sol.O₂[1,:])
+    k₀ = 2π/sheet.L
+    k = param.k * k₀
+    kz = sqrt.(Complex.(k^2 .- 2π*fftfreq(param.n, param.n/sheet.L)))
+    EI₁ = ifft( k \ (kz .* fft(HI₁)))
+    EI₂ = ifft(-k \ (kz .* fft(HI₂)))
+    EO₁ = ifft(-k \ (kz .* fft(HO₁)))
+    EO₂ = ifft( k \ (kz .* fft(HO₂)))
+    (
+        e=Zₑˣˣ * (HI₂ + HO₂ - HI₁ - HO₁) + 0.5(EI₂ + EO₂ + EI₁ + EO₁),
+        m=(EI₂ + EO₂ - EI₁ - EO₁) + Yₘʸʸ * 0.5(HI₂ + HO₂ + HI₁ + HO₁),
+    )
+end
+function validate_gstc(::Union{typeof(compute_DeltaRCWA_method), typeof(compute_RCWA_method)}, sim)
+    (; sheet, sol, param) = sim
+    Zₑˣˣ = Diagonal(0.5sheet.μ.(sol.x))
+    Yₘʸʸ = Diagonal(2.0sheet.η.(sol.x))
+    HI₁ = bfft(sol.Ĩ₁)
+    HI₂ = bfft(sol.Ĩ₂)
+    HO₁ = bfft(sol.Õ₁)
+    HO₂ = bfft(sol.Õ₂)
+    k₀ = 2π/sheet.L
+    k = param.k * k₀
+    EI₁ = bfft( k \ (sol.kz₁ .* sol.Ĩ₁))
+    EI₂ = bfft(-k \ (sol.kz₂ .* sol.Ĩ₂))
+    EO₁ = bfft(-k \ (sol.kz₁ .* sol.Õ₁))
+    EO₂ = bfft( k \ (sol.kz₂ .* sol.Õ₂))
+    (
+        e=Zₑˣˣ * (HI₂ + HO₂ - HI₁ - HO₁) + 0.5(EI₂ + EO₂ + EI₁ + EO₁),
+        m=(EI₂ + EO₂ - EI₁ - EO₁) + Yₘʸʸ * 0.5(HI₂ + HO₂ + HI₁ + HO₁),
+    )
+end
