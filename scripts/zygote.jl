@@ -49,7 +49,7 @@ function grad3d()
 
     L=L₀ # length of domain (some integer multiple of period of metasurface)
     k=1.1k₀ # wavenumber of incident field
-    n = 10 # number of modes to scatter
+    n = 20 # number of modes to scatter
     dims = ((n, L), (1, 1.0))
     I₁ = [i == j == 1 ? 1.0 : 0.0 for i in 1:n, j in 1:2]
     I₂ = zeros(n, 2)
