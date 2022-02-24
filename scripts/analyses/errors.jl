@@ -22,6 +22,6 @@ function errorL2(solerrors)
     (I₁=err.I₁[1], O₁=err.O₁[1], I₂=err.I₂[1], O₂=err.O₂[1])
 end
 function errorbydistance(solerrors)
-    err = L2cubature(solerrors; dims=1)
+    err = L2cubature(solerrors; dims=2)
     (y₁=solerrors.y₁, y₂=solerrors.y₂, I₁=vec(err.I₁), O₁=vec(err.O₁), I₂=vec(err.I₂), O₂=vec(err.O₂))
 end
