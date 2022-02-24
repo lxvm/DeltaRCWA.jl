@@ -1,11 +1,36 @@
-export FieldStyle, HField, EField
+export FieldStyle, PField, HField, EField
 
+"""
+    FieldStyle
+
+Supertype for traits that describe kinds of electromagnetic fields. `EField` and
+other types are subtypes of this.
+"""
 abstract type FieldStyle end
+
+"""
+    PField
+
+Subtype of `FieldStyle` that describes fields normalized to unit power.
+"""
+struct PField <: FieldStyle end
+
+"""
+    HField
+
+Subtype of `FieldStyle` that describes the auxiliary magnetic field.
+"""
 struct HField <: FieldStyle end
+
+"""
+    EField
+
+Subtype of `FieldStyle` that describes the electric field.
+"""
 struct EField <: FieldStyle end
 
 """
-    _gstcMatrix(::FieldStyle, A, B, C, D, )
+    _gstcMatrix(::Union{HField, EField}, A, B, C, D, )
 
 Converts gstcs `A(H² - H¹) = B(E² + E¹)` and `C(E² - E¹) = D(H² + H¹)` into a
 corresponding scattering matrix for either the E or H field
