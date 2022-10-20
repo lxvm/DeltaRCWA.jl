@@ -1,3 +1,4 @@
+using DeltaRCWA
 using LinearAlgebra
 
 function _get_wave_params(ω, kx, ϵ, μ)
@@ -43,17 +44,11 @@ function uFresnelTE(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
     inv(A)*S*A
 end
 
-ω = 2.0
-kx = 1.0
-# vacuum
-ϵ₁ = 1.0
-μ₁ = 1.0
-# water
-ϵ₂ = 1.77
-μ₂ = 1.0
+struct TransparentSheet <: Sheet end
+DeltaRCWA.MagneticResponseStyle(::Type{TransparentSheet}) = Admittance()
+DeltaRCWA.ElectricResponseStyle(::Type{TransparentSheet}) = Admittance()
 
-S = uFresnelTM(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
-J = [
-    0 1
-    1 0
-]
+function blockify(i, n)
+    d, r = divrem(i-1, n)
+    2*r+1+d # in general replace 2 with n_block
+end
