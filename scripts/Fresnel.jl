@@ -12,8 +12,10 @@ function FresnelTM(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
     kz₁, Y₁, v₁ = _get_wave_params(ω, kx, ϵ₁, μ₁)
     kz₂, Y₂, v₂ = _get_wave_params(ω, kx, ϵ₂, μ₂)
     S = [
-        Y₁*v₂*kz₂ - Y₂*v₁*kz₁   2*Y₂*v₂*kz₂
-        2*Y₁*v₁*kz₁   Y₂*v₁*kz₁ - Y₁*v₂*kz₂
+        -(Y₁*v₂*kz₂ - Y₂*v₁*kz₁)   2*Y₁*v₂*kz₂
+        2*Y₂*v₁*kz₁   -(Y₂*v₁*kz₁ - Y₁*v₂*kz₂)
+        # Y₁*v₂*kz₂ - Y₂*v₁*kz₁   2*Y₂*v₂*kz₂
+        # 2*Y₁*v₁*kz₁   Y₂*v₁*kz₁ - Y₁*v₂*kz₂
     ]
     return S / (Y₁*v₂*kz₂ + Y₂*v₁*kz₁)
 end
@@ -21,11 +23,11 @@ function uFresnelTM(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
     kz₁, Y₁, v₁ = _get_wave_params(ω, kx, ϵ₁, μ₁)
     kz₂, Y₂, v₂ = _get_wave_params(ω, kx, ϵ₂, μ₂)
     S = FresnelTM(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
-    α = sqrt(sqrt((Y₁*v₁*kz₁) / (Y₂*v₂*kz₂)))
+    α = sqrt(sqrt((Y₂*v₁*kz₁) / (Y₁*v₂*kz₂)))
     A = Diagonal([α^-1, α])
     inv(A)*S*A
 end
-
+#=
 function FresnelTE(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
     kz₁, Y₁, v₁ = _get_wave_params(ω, kx, ϵ₁, μ₁)
     kz₂, Y₂, v₂ = _get_wave_params(ω, kx, ϵ₂, μ₂)
@@ -43,7 +45,7 @@ function uFresnelTE(ω, kx, ϵ₁, μ₁, ϵ₂, μ₂)
     A = Diagonal([α^-1, α])
     inv(A)*S*A
 end
-
+=#
 struct TransparentSheet <: Sheet end
 DeltaRCWA.MagneticResponseStyle(::Type{TransparentSheet}) = Admittance()
 DeltaRCWA.ElectricResponseStyle(::Type{TransparentSheet}) = Admittance()
