@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.17.5
 
 using Markdown
 using InteractiveUtils
@@ -42,7 +42,7 @@ const Water = UniformMedium{1.7, 1.0}()
 const stack = SheetStack(EmptySheet(), (Vacuum, Water))
 
 # ╔═╡ 43d29086-510d-4870-94b7-2ff5ff34324b
-n = 100 # number of grid points
+n = 2 # number of grid points
 
 # ╔═╡ 5377ae36-32fc-41c5-bd03-c737422b17f4
 prob = DeltaRCWAProblem(stack, ((n, 1.0), ), 10.0, [i==2 ? 1 : 0 for i in 1:n], zeros(n))
