@@ -21,6 +21,16 @@ function DeltaRCWA.Yₘʸʸ(sheet::ComplexExpSheet, x⃗::Tuple)
     im*imag(y)
 end
 
+function DFT(n)
+    ω = cispi(-2/n)
+    roots = Vector{typeof(ω)}(undef, n)
+    roots[1] = one(ω)
+    for i in 2:n
+        roots[i] = ω*roots[i-1]
+    end
+    [roots[mod(k*j, n)+1] for k in 0:(n-1), j in 0:(n-1)]
+end
+
 """
 Test whether the gstcs are satisfied for TM mode scattering in a y-invariant
 system
@@ -41,15 +51,30 @@ E_x^i &= \\frac{k_z^i}{\\omega \\epsilon^i} H_y^i = \\frac{1}{\\omega \\epsilon^
 ```
 will be approximated by finite differences
 Input the sheet and number of Fourier modes, and domain size
+The functions f1(x) and f2(x) should compute the incident complex Hy fields at both
+sides of the surface in the position basis. They should be periodic with period L
 """
 function test_gstc_1d(sheet, ω, n, L, f1, f2)
     dims = (n, L)
+    dft = DFT(n)
     pw = Planewaves(ω, dims)
-    I₁ = DFT * f1.(pw.x⃗[1])
-    I₂ = DFT * f2.(pw.x⃗[1])
-    sol = solve(DeltaRCWAProblem(sheet, dims, I₁, I₂))
-    @assert I₁ ≈ iDFT * sol.I₁
-    @assert I₂ ≈ iDFT * sol.I₂
-    O₁ = iDFT * sol.O₁
-    O₂ = iDFT * sol.O₂
+    Hy₁_inc = dft * f1.(pw.x⃗[1])
+    Hy₂_inc = dft * f2.(pw.x⃗[1])
+    sol = solve(DeltaRCWAProblem(sheet, dims, Hy₁_inc, Hy₂_inc))
+    @assert I₁ ≈ idft * sol.I₁
+    @assert I₂ ≈ idft * sol.I₂
+    Hy₁_out = (sol.O₁' * dft)' ./ n # idft * sol.O₁
+    Hy₂_out = (sol.O₂' * dft)' ./ n # idft * sol.O₂
+end
+
+"""
+Use finite differences to estimate
+```math
+\\begin{align}
+E_x^i &= \\frac{k_z^i}{\\omega \\epsilon^i} H_y^i = \\frac{1}{\\sqrt{-1} \\omega \\epsilon^i} \\partial_z H_y^i
+\\end{align}
+```
+Specifically, uses a 1st order, one-sided 
+"""
+function fd(Hy, L)
 end
