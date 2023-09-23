@@ -18,20 +18,23 @@ function DeltaRCWA.Yₘʸʸ(sheet::PixelSheet{N}, x⃗::NTuple{N}) where {N}
     sheet.admitt[idx...]
 end
 
-L = 1.0
-pw = PlaneWaves(20.0, ((30, L),))
+L = 1.0     # unit cell period
+nmode = 30  # number of Fourier modes in frequency discretization
+ω = 2.0     # frequency
+pw = PlaneWaves(ω, ((nmode, L),))
 
 # create a lossless surface impedance (purely imaginary)
-admitt = rand(ComplexF64, 10)
+npix = 10   # pixels to use in impedance sheet
+admitt = rand(ComplexF64, npix)
 admitt .= admitt .- conj.(admitt)
-impede = rand(ComplexF64, 10)
+impede = rand(ComplexF64, npix)
 impede .= impede .- conj.(impede)
 sheet = PixelSheet(admitt, impede, (L,))
 
 prob = DeltaRCWA.ScatteringProblem(sheet, pw)
 sol = solve(prob)
 
-# retrieve the unitary scattering matrix of between propagating modes in ports
+# retrieve the unitary scattering matrix of propagating modes across ports
 U, = DeltaRCWA.propagating_unitary_smatrix(sol)
 # norm(U'U - I)/ norm(U'U) ≈ 1 # for lossless surface impedances
 
@@ -47,7 +50,7 @@ function paramloss(admitt, impede)
     prob = DeltaRCWA.ScatteringProblem(sheet, pw)
     sol = solve(prob)
     t12, t21 = DeltaRCWA.transmission_coefficient(sol)
-    abs(t12)
+    abs(t12)    # scalar function of transmission
 end
 
 using Zygote
