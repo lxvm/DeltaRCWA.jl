@@ -21,6 +21,7 @@ function SheetStack(depths::Tuple{Vararg{Float64, L}}, sheets::Tuple{Sheet, Vara
     SheetStack(depths, sheets, Tuple(Vacuum for _ in 1:(length(depths)+2)))
 end
 
+SheetStack(s::SheetStack) = s
 Base.convert(::Type{T}, S::SheetStack) where T<:SheetStack = S
 Base.convert(::Type{T}, S::Sheet) where T<:SheetStack = SheetStack(S)
 
